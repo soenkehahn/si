@@ -1,0 +1,8 @@
+[package]
+name = "si"
+version = "0.1.0"
+authors = ["Sönke Hahn <soenkehahn@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+tempdir = "*"
