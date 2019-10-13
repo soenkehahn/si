@@ -31,23 +31,26 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
         let contents = fs::read(entry)?;
         stdout.write_all(&contents)?;
     } else if entry.is_dir() {
-        let mut children: Vec<String> = entry
-            .read_dir()?
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .map(|x| {
-                x.path()
+        let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
+        children.sort_unstable_by(|a, b| a.path().file_name().cmp(&b.path().file_name()));
+        for child in children {
+            stdout.write_all(
+                child
+                    .path()
                     .file_name()
                     .unwrap_or_else(|| {
-                        panic!(format!("directory entry has no last component: {:?}", x))
+                        panic!(format!(
+                            "directory entry has no last component: {:?}",
+                            child
+                        ))
                     })
                     .to_string_lossy()
                     .into_owned()
-            })
-            .collect();
-        children.sort();
-        for child in children {
-            stdout.write_all(child.as_bytes())?;
+                    .as_bytes(),
+            )?;
+            if child.path().is_dir() {
+                stdout.write_all(b"/")?;
+            }
             stdout.write_all(b"\n")?;
         }
     } else {
@@ -148,12 +151,21 @@ mod test {
         }
 
         #[test]
-        fn lists_directory_when_no_argument_given() -> R<()> {
+        fn lists_working_directory_when_no_argument_given() -> R<()> {
             let mut setup = setup()?;
             fs::write(setup.tempdir().join("foo"), "")?;
             fs::write(setup.tempdir().join("bar"), "")?;
             setup.run(vec![])?;
             assert_eq!(setup.stdout(), "bar\nfoo\n");
+            Ok(())
+        }
+
+        #[test]
+        fn lists_directories_with_a_trailing_slash() -> R<()> {
+            let mut setup = setup()?;
+            fs::create_dir(setup.tempdir().join("foo"))?;
+            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            assert_eq!(setup.stdout(), "foo/\n");
             Ok(())
         }
     }
