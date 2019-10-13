@@ -1,5 +1,6 @@
 use colored::*;
 use pager::Pager;
+use std::fmt::Display;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -34,6 +35,9 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     } else if entry.is_dir() {
         let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
         children.sort_unstable_by(|a, b| a.path().file_name().cmp(&b.path().file_name()));
+        let stats = get_stats(&children)?;
+        stdout.write_all(format!("{}\n", stats).as_bytes())?;
+        stdout.write_all(format!("{}\n", "---".yellow().bold()).as_bytes())?;
         for child in children {
             let path = child
                 .path()
@@ -59,9 +63,57 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     Ok(())
 }
 
+struct Stats {
+    entries: usize,
+    directories: usize,
+    files: usize,
+}
+
+impl Display for Stats {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        let entries = match self.entries {
+            1 => "entry",
+            _ => "entries",
+        };
+        let directories = match self.directories {
+            1 => "directory",
+            _ => "directories",
+        };
+        let files = match self.files {
+            1 => "file",
+            _ => "files",
+        };
+        write!(
+            formatter,
+            "{} {}, {} {}, {} {}",
+            self.entries, entries, self.directories, directories, self.files, files
+        )?;
+        Ok(())
+    }
+}
+
+fn get_stats(entries: &[fs::DirEntry]) -> R<Stats> {
+    let mut stats = Stats {
+        entries: 0,
+        directories: 0,
+        files: 0,
+    };
+    for entry in entries {
+        stats.entries += 1;
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            stats.directories += 1;
+        } else if file_type.is_file() {
+            stats.files += 1;
+        }
+    }
+    Ok(stats)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use itertools::Itertools;
     use std::io::Cursor;
     use std::path::Path;
     use strip_ansi_escapes::strip;
@@ -105,6 +157,10 @@ mod test {
         }
     }
 
+    fn drop_stats(output: String) -> String {
+        output.split("\n").skip(2).join("\n")
+    }
+
     #[test]
     fn cats_files() -> R<()> {
         let mut setup = setup()?;
@@ -137,7 +193,7 @@ mod test {
             let mut setup = setup()?;
             fs::write(setup.tempdir().join("foo"), "")?;
             setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
-            assert_eq!(setup.stdout(), "foo\n");
+            assert_eq!(drop_stats(setup.stdout()), "foo\n");
             Ok(())
         }
 
@@ -147,7 +203,7 @@ mod test {
             fs::write(setup.tempdir().join("foo"), "")?;
             fs::write(setup.tempdir().join("bar"), "")?;
             setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
-            assert_eq!(setup.stdout(), "bar\nfoo\n");
+            assert_eq!(drop_stats(setup.stdout()), "bar\nfoo\n");
             Ok(())
         }
 
@@ -157,7 +213,7 @@ mod test {
             fs::write(setup.tempdir().join("foo"), "")?;
             fs::write(setup.tempdir().join("bar"), "")?;
             setup.run(vec![])?;
-            assert_eq!(setup.stdout(), "bar\nfoo\n");
+            assert_eq!(drop_stats(setup.stdout()), "bar\nfoo\n");
             Ok(())
         }
 
@@ -166,7 +222,7 @@ mod test {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
             setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
-            assert_eq!(strip(setup.stdout())?, b"foo/\n");
+            assert_eq!(strip(drop_stats(setup.stdout()))?, b"foo/\n");
             Ok(())
         }
 
@@ -175,8 +231,73 @@ mod test {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
             setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
-            assert_eq!(setup.stdout(), format!("{}/\n", "foo".blue().bold()));
+            assert_eq!(
+                drop_stats(setup.stdout()),
+                format!("{}/\n", "foo".blue().bold())
+            );
             Ok(())
+        }
+
+        #[test]
+        fn shows_the_number_of_files_and_directories() -> R<()> {
+            let mut setup = setup()?;
+            fs::create_dir(setup.tempdir().join("foo"))?;
+            fs::write(setup.tempdir().join("bar"), "")?;
+            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            assert_eq!(
+                setup.stdout().split("\n").take(2).join("\n"),
+                format!("2 entries, 1 directory, 1 file\n{}", "---".yellow().bold())
+            );
+            Ok(())
+        }
+
+        mod stats_pluralization {
+            use super::*;
+
+            #[test]
+            fn zeros() {
+                assert_eq!(
+                    format!(
+                        "{}",
+                        Stats {
+                            entries: 0,
+                            directories: 0,
+                            files: 0
+                        }
+                    ),
+                    "0 entries, 0 directories, 0 files"
+                );
+            }
+
+            #[test]
+            fn ones() {
+                assert_eq!(
+                    format!(
+                        "{}",
+                        Stats {
+                            entries: 1,
+                            directories: 1,
+                            files: 1
+                        }
+                    ),
+                    "1 entry, 1 directory, 1 file"
+                );
+            }
+
+            #[test]
+            fn twos() {
+                assert_eq!(
+                    format!(
+                        "{}",
+                        Stats {
+                            entries: 2,
+                            directories: 2,
+                            files: 2
+                        }
+                    ),
+                    "2 entries, 2 directories, 2 files"
+                );
+            }
         }
     }
 }
