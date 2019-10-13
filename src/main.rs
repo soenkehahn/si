@@ -1,3 +1,4 @@
+use colored::*;
 use pager::Pager;
 use std::fs;
 use std::io::Write;
@@ -34,24 +35,23 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
         let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
         children.sort_unstable_by(|a, b| a.path().file_name().cmp(&b.path().file_name()));
         for child in children {
-            stdout.write_all(
-                child
-                    .path()
-                    .file_name()
-                    .unwrap_or_else(|| {
-                        panic!(format!(
-                            "directory entry has no last component: {:?}",
-                            child
-                        ))
-                    })
-                    .to_string_lossy()
-                    .into_owned()
-                    .as_bytes(),
-            )?;
-            if child.path().is_dir() {
-                stdout.write_all(b"/")?;
-            }
-            stdout.write_all(b"\n")?;
+            let path = child
+                .path()
+                .file_name()
+                .unwrap_or_else(|| {
+                    panic!(format!(
+                        "directory entry has no last component: {:?}",
+                        child
+                    ))
+                })
+                .to_string_lossy()
+                .into_owned();
+            let list_entry = if child.path().is_dir() {
+                format!("{}/", path.blue().bold())
+            } else {
+                path
+            };
+            stdout.write_all(format!("{}\n", list_entry).as_bytes())?;
         }
     } else {
         return Err(format!("unknown filetype for: {}", entry.to_string_lossy()).into());
@@ -64,6 +64,7 @@ mod test {
     use super::*;
     use std::io::Cursor;
     use std::path::Path;
+    use strip_ansi_escapes::strip;
     use tempdir::TempDir;
 
     struct Setup {
@@ -165,7 +166,16 @@ mod test {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
             setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
-            assert_eq!(setup.stdout(), "foo/\n");
+            assert_eq!(strip(setup.stdout())?, b"foo/\n");
+            Ok(())
+        }
+
+        #[test]
+        fn lists_directories_in_blue() -> R<()> {
+            let mut setup = setup()?;
+            fs::create_dir(setup.tempdir().join("foo"))?;
+            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            assert_eq!(setup.stdout(), format!("{}/\n", "foo".blue().bold()));
             Ok(())
         }
     }
