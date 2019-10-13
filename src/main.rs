@@ -23,7 +23,7 @@ fn main() {
 }
 
 fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> {
-    let entry = PathBuf::from(args.nth(1).unwrap());
+    let entry = PathBuf::from(args.nth(1).unwrap_or_else(|| ".".to_string()));
     if !entry.exists() {
         return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
     }
@@ -66,22 +66,24 @@ mod test {
     struct Setup {
         stdout: Cursor<Vec<u8>>,
         tempdir: TempDir,
+        outer_directory: PathBuf,
     }
 
     fn setup() -> R<Setup> {
-        let stdout = Cursor::new(vec![]);
+        let outer_directory = std::env::current_dir()?;
+        let tempdir = TempDir::new("si-test")?;
+        std::env::set_current_dir(tempdir.path())?;
         Ok(Setup {
-            stdout,
-            tempdir: TempDir::new("si-test")?,
+            stdout: Cursor::new(vec![]),
+            tempdir,
+            outer_directory,
         })
     }
 
     impl Setup {
-        fn run(&mut self, arg: String) -> R<()> {
-            run(
-                &mut vec!["si".to_string(), arg].into_iter(),
-                &mut self.stdout,
-            )
+        fn run(&mut self, args: Vec<String>) -> R<()> {
+            let args = vec![vec!["si".to_string()], args].concat();
+            run(&mut args.into_iter(), &mut self.stdout)
         }
 
         fn stdout(&self) -> String {
@@ -93,11 +95,21 @@ mod test {
         }
     }
 
+    impl Drop for Setup {
+        fn drop(&mut self) {
+            std::env::set_current_dir(&self.outer_directory).unwrap();
+        }
+    }
+
     #[test]
     fn cats_files() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "bar")?;
-        setup.run(setup.tempdir().join("foo").to_string_lossy().into_owned())?;
+        setup.run(vec![setup
+            .tempdir()
+            .join("foo")
+            .to_string_lossy()
+            .into_owned()])?;
         assert_eq!(setup.stdout(), "bar");
         Ok(())
     }
@@ -105,7 +117,7 @@ mod test {
     #[test]
     fn path_not_found() -> R<()> {
         let mut setup = setup()?;
-        let result = setup.run("does_not_exist.txt".to_string());
+        let result = setup.run(vec!["does_not_exist.txt".to_string()]);
         assert_eq!(
             result.map_err(|x| x.to_string()),
             Err("path not found: does_not_exist.txt\n".to_string())
@@ -113,22 +125,36 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn directory_listing_single_file() -> R<()> {
-        let mut setup = setup()?;
-        fs::write(setup.tempdir().join("foo"), "")?;
-        setup.run(setup.tempdir().to_string_lossy().into_owned())?;
-        assert_eq!(setup.stdout(), "foo\n");
-        Ok(())
-    }
+    mod directories {
+        use super::*;
 
-    #[test]
-    fn directory_listing_multiple_files_sorted() -> R<()> {
-        let mut setup = setup()?;
-        fs::write(setup.tempdir().join("foo"), "")?;
-        fs::write(setup.tempdir().join("bar"), "")?;
-        setup.run(setup.tempdir().to_string_lossy().into_owned())?;
-        assert_eq!(setup.stdout(), "bar\nfoo\n");
-        Ok(())
+        #[test]
+        fn single_file() -> R<()> {
+            let mut setup = setup()?;
+            fs::write(setup.tempdir().join("foo"), "")?;
+            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            assert_eq!(setup.stdout(), "foo\n");
+            Ok(())
+        }
+
+        #[test]
+        fn multiple_files_sorted() -> R<()> {
+            let mut setup = setup()?;
+            fs::write(setup.tempdir().join("foo"), "")?;
+            fs::write(setup.tempdir().join("bar"), "")?;
+            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            assert_eq!(setup.stdout(), "bar\nfoo\n");
+            Ok(())
+        }
+
+        #[test]
+        fn lists_directory_when_no_argument_given() -> R<()> {
+            let mut setup = setup()?;
+            fs::write(setup.tempdir().join("foo"), "")?;
+            fs::write(setup.tempdir().join("bar"), "")?;
+            setup.run(vec![])?;
+            assert_eq!(setup.stdout(), "bar\nfoo\n");
+            Ok(())
+        }
     }
 }
