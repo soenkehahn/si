@@ -4,28 +4,26 @@ pub struct Colorized<I> {
 }
 
 impl<I: Iterator<Item = u8>> Iterator for Colorized<I> {
-    type Item = Vec<u8>;
+    type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|char| match char {
             b'\n' if self.quoted => {
                 self.quoted = false;
-                "\u{1b}[0m\n".bytes().collect()
+                "\u{1b}[0m\n".to_string()
             }
             b'\"' => {
                 let result = if !self.quoted {
-                    "\u{1b}[1;33m\""
+                    "\u{1b}[1;33m\"".to_string()
                 } else {
-                    "\"\u{1b}[0m"
-                }
-                .bytes()
-                .collect();
+                    "\"\u{1b}[0m".to_string()
+                };
                 self.quoted = !self.quoted;
                 result
             }
-            b'(' => "\u{1b}[1;36m(\u{1b}[0m".bytes().collect(),
-            b')' => "\u{1b}[1;36m)\u{1b}[0m".bytes().collect(),
-            char => vec![char],
+            b'(' => "\u{1b}[1;36m(\u{1b}[0m".to_string(),
+            b')' => "\u{1b}[1;36m)\u{1b}[0m".to_string(),
+            char => char::from(char).to_string(),
         })
     }
 }
@@ -46,8 +44,6 @@ mod test {
     fn colorizes_double_quoted_strings() {
         assert_eq!(
             colorize(b"f\"o\"o".to_vec().into_iter())
-                .into_iter()
-                .map(|x| String::from_utf8_lossy(&x).into_owned())
                 .collect::<Vec<_>>()
                 .join(""),
             format!("f{}o", "\"o\"".yellow().bold())
@@ -58,8 +54,6 @@ mod test {
     fn resets_at_newlines() {
         assert_eq!(
             colorize(b"foo\"bar\nf\"o\"o".to_vec().into_iter())
-                .into_iter()
-                .map(|x| String::from_utf8_lossy(&x).into_owned())
                 .collect::<Vec<_>>()
                 .join(""),
             format!(
@@ -74,8 +68,6 @@ mod test {
     fn colorizes_round_brackets() {
         assert_eq!(
             colorize(b"(foo)".to_vec().into_iter())
-                .into_iter()
-                .map(|x| String::from_utf8_lossy(&x).into_owned())
                 .collect::<Vec<_>>()
                 .join(""),
             format!("{}foo{}", "(".cyan().bold(), ")".cyan().bold())

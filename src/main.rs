@@ -35,7 +35,7 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     if entry.is_file() {
         let contents = fs::read(entry)?;
         for chunk in colorize(contents.into_iter()) {
-            stdout.write_all(&chunk)?
+            write!(stdout, "{}", chunk)?;
         }
     } else if entry.is_dir() {
         let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
