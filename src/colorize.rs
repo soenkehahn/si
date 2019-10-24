@@ -13,18 +13,13 @@ impl<I: Iterator<Item = u8>> Iterator for Colorized<I> {
                 "\u{1b}[0m\n".bytes().collect()
             }
             b'\"' => {
-                let mut result: Vec<u8> = vec![];
-                if !self.quoted {
-                    for c in "\u{1b}[1;33m".bytes() {
-                        result.push(c)
-                    }
+                let result = if !self.quoted {
+                    "\u{1b}[1;33m\""
+                } else {
+                    "\"\u{1b}[0m"
                 }
-                result.push(char);
-                if self.quoted {
-                    for c in "\u{1b}[0m".bytes() {
-                        result.push(c)
-                    }
-                }
+                .bytes()
+                .collect();
                 self.quoted = !self.quoted;
                 result
             }
