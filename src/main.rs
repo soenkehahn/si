@@ -1,4 +1,7 @@
+mod colorize;
+
 use colored::*;
+use colorize::colorize;
 use pager::Pager;
 use std::fmt::Display;
 use std::fs;
@@ -31,7 +34,9 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     }
     if entry.is_file() {
         let contents = fs::read(entry)?;
-        stdout.write_all(&contents)?;
+        for chunk in colorize(contents.into_iter()) {
+            stdout.write_all(&chunk)?
+        }
     } else if entry.is_dir() {
         let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
         children.sort_unstable_by(|a, b| a.path().file_name().cmp(&b.path().file_name()));
@@ -171,6 +176,19 @@ mod test {
             .to_string_lossy()
             .into_owned()])?;
         assert_eq!(setup.stdout(), "bar");
+        Ok(())
+    }
+
+    #[test]
+    fn colorizes_file_contents() -> R<()> {
+        let mut setup = setup()?;
+        fs::write(setup.tempdir().join("foo"), "foo \"bar\"")?;
+        setup.run(vec![setup
+            .tempdir()
+            .join("foo")
+            .to_string_lossy()
+            .into_owned()])?;
+        assert_eq!(setup.stdout(), format!("foo {}", "\"bar\"".yellow().bold()));
         Ok(())
     }
 
