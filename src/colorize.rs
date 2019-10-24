@@ -19,7 +19,7 @@ impl<I: Iterator<Item = u8>> Iterator for Colorized<I> {
                         result.push(c)
                     }
                 }
-                result.push(b'\"');
+                result.push(char);
                 if self.quoted {
                     for c in "\u{1b}[0m".bytes() {
                         result.push(c)
@@ -28,6 +28,8 @@ impl<I: Iterator<Item = u8>> Iterator for Colorized<I> {
                 self.quoted = !self.quoted;
                 result
             }
+            b'(' => "\u{1b}[1;36m(\u{1b}[0m".bytes().collect(),
+            b')' => "\u{1b}[1;36m)\u{1b}[0m".bytes().collect(),
             char => vec![char],
         })
     }
@@ -70,6 +72,18 @@ mod test {
                 "\"bar".yellow().bold(),
                 "\"o\"".yellow().bold()
             )
+        );
+    }
+
+    #[test]
+    fn colorizes_round_brackets() {
+        assert_eq!(
+            colorize(b"(foo)".to_vec().into_iter())
+                .into_iter()
+                .map(|x| String::from_utf8_lossy(&x).into_owned())
+                .collect::<Vec<_>>()
+                .join(""),
+            format!("{}foo{}", "(".cyan().bold(), ")".cyan().bold())
         );
     }
 }
