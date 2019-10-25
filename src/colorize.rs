@@ -21,8 +21,7 @@ impl<I: Iterator<Item = u8>> Iterator for Colorized<I> {
                 self.quoted = !self.quoted;
                 result
             }
-            b'(' => "\u{1b}[1;36m(\u{1b}[0m".to_string(),
-            b')' => "\u{1b}[1;36m)\u{1b}[0m".to_string(),
+            b'(' | b')' | b'{' | b'}' => format!("\u{1b}[1;36m{}\u{1b}[0m", char::from(char)),
             char => char::from(char).to_string(),
         })
     }
@@ -71,6 +70,16 @@ mod test {
                 .collect::<Vec<_>>()
                 .join(""),
             format!("{}foo{}", "(".cyan().bold(), ")".cyan().bold())
+        );
+    }
+
+    #[test]
+    fn colorizes_curly_brackets() {
+        assert_eq!(
+            colorize(b"{foo}".to_vec().into_iter())
+                .collect::<Vec<_>>()
+                .join(""),
+            format!("{}foo{}", "{".cyan().bold(), "}".cyan().bold())
         );
     }
 }
