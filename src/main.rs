@@ -1,4 +1,5 @@
 mod colorize;
+mod readme;
 
 use colored::*;
 use colorize::colorize;
