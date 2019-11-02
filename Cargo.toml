@@ -12,4 +12,3 @@ tempdir = "*"
 [dev-dependencies]
 strip-ansi-escapes = "*"
 itertools = "*"
-indoc = "*"

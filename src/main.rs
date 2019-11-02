@@ -125,13 +125,13 @@ mod test {
     use strip_ansi_escapes::strip;
     use tempdir::TempDir;
 
-    struct Setup {
+    pub struct Setup {
         stdout: Cursor<Vec<u8>>,
         tempdir: TempDir,
         outer_directory: PathBuf,
     }
 
-    fn setup() -> R<Setup> {
+    pub fn setup() -> R<Setup> {
         let outer_directory = std::env::current_dir()?;
         let tempdir = TempDir::new("si-test")?;
         std::env::set_current_dir(tempdir.path())?;
@@ -143,12 +143,12 @@ mod test {
     }
 
     impl Setup {
-        fn run(&mut self, args: Vec<String>) -> R<()> {
+        pub fn run(&mut self, args: Vec<String>) -> R<()> {
             let args = vec![vec!["si".to_string()], args].concat();
             run(&mut args.into_iter(), &mut self.stdout)
         }
 
-        fn stdout(&self) -> String {
+        pub fn stdout(&self) -> String {
             String::from_utf8_lossy(self.stdout.get_ref()).into_owned()
         }
 
