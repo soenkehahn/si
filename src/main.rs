@@ -33,8 +33,7 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
         return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
     }
     if entry.is_file() {
-        let contents = fs::read(entry)?;
-        for chunk in colorize(contents.into_iter()) {
+        for chunk in colorize(String::from_utf8_lossy(&fs::read(entry)?).chars()) {
             write!(stdout, "{}", chunk)?;
         }
     } else if entry.is_dir() {
