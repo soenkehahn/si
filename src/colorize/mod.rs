@@ -107,11 +107,8 @@ impl<'a> Parser<'a> {
         parse_element: fn(&mut Parser) -> ParseResult<A>,
     ) -> impl Iterator<Item = A> {
         let mut result = vec![];
-        loop {
-            match parse_element(self) {
-                Ok(element) => result.push(element),
-                Err(()) => break,
-            }
+        while let Ok(element) = parse_element(self) {
+            result.push(element);
         }
         result.into_iter()
     }
@@ -121,11 +118,8 @@ impl<'a> Parser<'a> {
     ) -> ParseResult<impl Iterator<Item = A>> {
         let first = parse_element(self)?;
         let mut result = vec![first];
-        loop {
-            match parse_element(self) {
-                Ok(element) => result.push(element),
-                Err(()) => break,
-            }
+        while let Ok(element) = parse_element(self) {
+            result.push(element);
         }
         Ok(result.into_iter())
     }
