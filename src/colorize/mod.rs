@@ -28,7 +28,7 @@ impl<'a> Parser<'a> {
     fn next_chunk(&mut self) -> Option<String> {
         self.word()
             .or_else(|()| {
-                self.char(|char| "(){}".chars().any(|c| c == char))
+                self.char(|char| "(){}[]".chars().any(|c| c == char))
                     .map(|chunk| chunk.to_string().cyan().bold().to_string())
             })
             .or_else(|()| self.number_word())
@@ -179,6 +179,14 @@ mod test {
         assert_eq!(
             test_colorize("{foo}"),
             format!("{}foo{}", "{".cyan().bold(), "}".cyan().bold())
+        );
+    }
+
+    #[test]
+    fn colorizes_square_brackets() {
+        assert_eq!(
+            test_colorize("[foo]"),
+            format!("{}foo{}", "[".cyan().bold(), "]".cyan().bold())
         );
     }
 
