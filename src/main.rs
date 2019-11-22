@@ -1,7 +1,8 @@
 mod colorize;
+mod file;
 
 use colored::*;
-use colorize::colorize;
+use file::output;
 use pager::Pager;
 use std::fmt::Display;
 use std::fs;
@@ -33,15 +34,13 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
         return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
     }
     if entry.is_file() {
-        for chunk in colorize(String::from_utf8_lossy(&fs::read(entry)?).chars()) {
-            write!(stdout, "{}", chunk)?;
-        }
+        output(stdout, entry)?;
     } else if entry.is_dir() {
         let mut children = entry.read_dir()?.collect::<Result<Vec<_>, _>>()?;
         children.sort_unstable_by(|a, b| a.path().file_name().cmp(&b.path().file_name()));
         let stats = get_stats(&children)?;
         stdout.write_all(format!("{}\n", stats).as_bytes())?;
-        stdout.write_all(format!("{}\n", "---".yellow().bold()).as_bytes())?;
+        write_separator(stdout)?;
         for child in children {
             let path = child
                 .path()
@@ -64,6 +63,11 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     } else {
         return Err(format!("unknown filetype for: {}", entry.to_string_lossy()).into());
     }
+    Ok(())
+}
+
+fn write_separator(stdout: &mut dyn Write) -> R<()> {
+    stdout.write_all(format!("{}\n", "---".yellow().bold()).as_bytes())?;
     Ok(())
 }
 
@@ -123,13 +127,13 @@ mod test {
     use strip_ansi_escapes::strip;
     use tempdir::TempDir;
 
-    struct Setup {
+    pub struct Setup {
         stdout: Cursor<Vec<u8>>,
         tempdir: TempDir,
         outer_directory: PathBuf,
     }
 
-    fn setup() -> R<Setup> {
+    pub fn setup() -> R<Setup> {
         let outer_directory = std::env::current_dir()?;
         let tempdir = TempDir::new("si-test")?;
         std::env::set_current_dir(tempdir.path())?;
@@ -141,16 +145,16 @@ mod test {
     }
 
     impl Setup {
-        fn run(&mut self, args: Vec<String>) -> R<()> {
+        pub fn run(&mut self, args: Vec<String>) -> R<()> {
             let args = vec![vec!["si".to_string()], args].concat();
             run(&mut args.into_iter(), &mut self.stdout)
         }
 
-        fn stdout(&self) -> String {
+        pub fn stdout(&self) -> String {
             String::from_utf8_lossy(self.stdout.get_ref()).into_owned()
         }
 
-        fn tempdir(&self) -> &Path {
+        pub fn tempdir(&self) -> &Path {
             self.tempdir.path()
         }
     }
@@ -161,33 +165,24 @@ mod test {
         }
     }
 
-    fn drop_stats(output: String) -> String {
+    pub fn drop_stats(output: String) -> String {
         output.split("\n").skip(2).join("\n")
+    }
+
+    pub fn get_line(output: String, line: usize) -> String {
+        output
+            .split("\n")
+            .nth(line)
+            .expect(&format!("get_line: no {}th line in:\n{}", line, output))
+            .to_string()
     }
 
     #[test]
     fn cats_files() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "bar")?;
-        setup.run(vec![setup
-            .tempdir()
-            .join("foo")
-            .to_string_lossy()
-            .into_owned()])?;
-        assert_eq!(setup.stdout(), "bar");
-        Ok(())
-    }
-
-    #[test]
-    fn colorizes_file_contents() -> R<()> {
-        let mut setup = setup()?;
-        fs::write(setup.tempdir().join("foo"), "foo \"bar\"")?;
-        setup.run(vec![setup
-            .tempdir()
-            .join("foo")
-            .to_string_lossy()
-            .into_owned()])?;
-        assert_eq!(setup.stdout(), format!("foo {}", "\"bar\"".yellow().bold()));
+        setup.run(vec!["foo".to_string()])?;
+        assert_eq!(drop_stats(setup.stdout()), "bar");
         Ok(())
     }
 
@@ -209,7 +204,7 @@ mod test {
         fn single_file() -> R<()> {
             let mut setup = setup()?;
             fs::write(setup.tempdir().join("foo"), "")?;
-            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            setup.run(vec![".".to_string()])?;
             assert_eq!(drop_stats(setup.stdout()), "foo\n");
             Ok(())
         }
@@ -219,7 +214,7 @@ mod test {
             let mut setup = setup()?;
             fs::write(setup.tempdir().join("foo"), "")?;
             fs::write(setup.tempdir().join("bar"), "")?;
-            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            setup.run(vec![".".to_string()])?;
             assert_eq!(drop_stats(setup.stdout()), "bar\nfoo\n");
             Ok(())
         }
@@ -238,7 +233,7 @@ mod test {
         fn lists_directories_with_a_trailing_slash() -> R<()> {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
-            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            setup.run(vec![".".to_string()])?;
             assert_eq!(strip(drop_stats(setup.stdout()))?, b"foo/\n");
             Ok(())
         }
@@ -247,7 +242,7 @@ mod test {
         fn lists_directories_in_blue() -> R<()> {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
-            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            setup.run(vec![".".to_string()])?;
             assert_eq!(
                 drop_stats(setup.stdout()),
                 format!("{}/\n", "foo".blue().bold())
@@ -260,7 +255,7 @@ mod test {
             let mut setup = setup()?;
             fs::create_dir(setup.tempdir().join("foo"))?;
             fs::write(setup.tempdir().join("bar"), "")?;
-            setup.run(vec![setup.tempdir().to_string_lossy().into_owned()])?;
+            setup.run(vec![".".to_string()])?;
             assert_eq!(
                 setup.stdout().split("\n").take(2).join("\n"),
                 format!("2 entries, 1 directory, 1 file\n{}", "---".yellow().bold())
