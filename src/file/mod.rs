@@ -1,6 +1,7 @@
 mod colorize;
 
 use self::colorize::colorize;
+use crate::stream::Stream;
 use crate::{write_separator, R};
 use std::fs;
 use std::io::Write;
@@ -10,7 +11,9 @@ pub fn output(stdout: &mut dyn Write, file: PathBuf) -> R<()> {
     let size = fs::metadata(&file)?.len();
     writeln!(stdout, "file: {}, {} bytes", file.to_string_lossy(), size)?;
     write_separator(stdout)?;
-    for chunk in colorize(String::from_utf8_lossy(&fs::read(file)?).chars()) {
+    for chunk in colorize(Stream::read_utf8_file(&file)?)
+        .flat_map(|x| Stream::from_iterator(x.chars().collect::<Vec<_>>().into_iter()))
+    {
         write!(stdout, "{}", chunk)?;
     }
     Ok(())
@@ -27,10 +30,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo \"bar\"")?;
         setup.run(vec!["foo".to_string()])?;
-        assert_eq!(
-            drop_stats(setup.stdout()),
-            format!("foo {}", "\"bar\"".yellow().bold())
-        );
+        assert!(drop_stats(setup.stdout()).ends_with(&format!("foo {}", "\"bar\"".yellow().bold())));
         Ok(())
     }
 

@@ -8,6 +8,7 @@ edition = "2018"
 colored = "*"
 pager = "*"
 tempdir = "*"
+utf8-chars = "*"
 
 [dev-dependencies]
 strip-ansi-escapes = "*"

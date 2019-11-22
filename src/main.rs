@@ -1,5 +1,6 @@
 mod directory;
 mod file;
+mod stream;
 
 use colored::*;
 use pager::Pager;
@@ -110,7 +111,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "bar")?;
         setup.run(vec!["foo".to_string()])?;
-        assert_eq!(drop_stats(setup.stdout()), "bar");
+        assert!(drop_stats(setup.stdout()).ends_with("bar"));
         Ok(())
     }
 

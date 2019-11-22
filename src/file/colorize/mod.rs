@@ -1,22 +1,22 @@
-mod stream;
+mod peekable;
 
-use self::stream::Stream;
+use self::peekable::Peekable;
+use crate::stream::Stream;
 use colored::*;
-use std::fmt::Debug;
 
-pub fn colorize<'a, I: Iterator<Item = char> + Debug + 'a>(contents: I) -> Parser<'a> {
-    Parser {
-        inner: Stream::new(contents),
-    }
+pub fn colorize(contents: Stream<char>) -> Stream<String> {
+    Stream::from_iterator(Parser {
+        inner: Peekable::new(contents),
+    })
 }
 
-pub struct Parser<'a> {
-    inner: Stream<'a>,
+pub struct Parser {
+    inner: Peekable<char>,
 }
 
 type ParseResult<A> = Result<A, ()>;
 
-impl<'a> Iterator for Parser<'a> {
+impl Iterator for Parser {
     type Item = String;
 
     fn next(&mut self) -> Option<String> {
@@ -24,7 +24,7 @@ impl<'a> Iterator for Parser<'a> {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     fn next_chunk(&mut self) -> Option<String> {
         self.word()
             .or_else(|()| {
@@ -71,7 +71,7 @@ impl<'a> Parser<'a> {
         Ok(format!("{}{}", a, b))
     }
 
-    fn char<F: Fn(char) -> bool + 'a>(&mut self, predicate: F) -> ParseResult<char> {
+    fn char<F: Fn(char) -> bool>(&mut self, predicate: F) -> ParseResult<char> {
         match self.inner.peek() {
             Some(char) => {
                 if predicate(char) {
@@ -130,8 +130,10 @@ mod test {
     use super::*;
 
     fn test_colorize(input: &str) -> String {
-        let string = input.to_string();
-        colorize(&mut string.chars()).collect::<Vec<_>>().join("")
+        let vec: Vec<char> = input.to_string().to_owned().chars().collect();
+        colorize(Stream::from_iterator(vec.into_iter()))
+            .to_vec()
+            .join("")
     }
 
     mod quotes {
