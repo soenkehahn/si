@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub struct Stream<'a> {
     first: Option<char>,
     iterator: Box<dyn Iterator<Item = char> + 'a>,
