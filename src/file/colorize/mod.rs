@@ -1,6 +1,6 @@
 mod stream;
 
-use crate::colorize::stream::Stream;
+use self::stream::Stream;
 use colored::*;
 use std::fmt::Debug;
 

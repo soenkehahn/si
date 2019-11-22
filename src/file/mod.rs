@@ -1,4 +1,6 @@
-use crate::colorize::colorize;
+mod colorize;
+
+use self::colorize::colorize;
 use crate::{write_separator, R};
 use std::fs;
 use std::io::Write;

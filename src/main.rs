@@ -1,4 +1,3 @@
-mod colorize;
 mod file;
 
 use colored::*;
