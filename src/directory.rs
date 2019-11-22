@@ -33,7 +33,7 @@ pub fn output(stdout: &mut dyn Write, directory: PathBuf) -> R<()> {
     Ok(())
 }
 
-pub struct Stats {
+struct Stats {
     entries: usize,
     directories: usize,
     files: usize,
@@ -62,7 +62,7 @@ impl Display for Stats {
     }
 }
 
-pub fn get_stats(entries: &[fs::DirEntry]) -> R<Stats> {
+fn get_stats(entries: &[fs::DirEntry]) -> R<Stats> {
     let mut stats = Stats {
         entries: 0,
         directories: 0,
