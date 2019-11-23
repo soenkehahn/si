@@ -9,6 +9,7 @@ use std::path::PathBuf;
 type R<A> = Result<A, Box<dyn std::error::Error>>;
 
 fn wrap_main(action: fn(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()>) {
+    colored::control::set_override(true);
     Pager::with_pager("less -RFX").setup();
     let mut stdout = std::io::stdout();
     let exitcode = match action(&mut std::env::args(), &mut stdout) {
