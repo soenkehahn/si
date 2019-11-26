@@ -13,7 +13,7 @@ pub fn output(stdout: &mut dyn Write, file: PathBuf) -> R<()> {
     write_separator(stdout)?;
     for chunk in add_line_numbers(
         colorize(Stream::read_utf8_file(&file)?)
-            .flat_map(|x| Stream::from_iterator(x.chars().collect::<Vec<_>>().into_iter())),
+            .flat_map(|x| Stream::from(x.chars().collect::<Vec<_>>().into_iter())),
     ) {
         write!(stdout, "{}", chunk)?;
     }

@@ -5,7 +5,7 @@ use crate::stream::Stream;
 use colored::*;
 
 pub fn colorize(contents: Stream<char>) -> Stream<String> {
-    Stream::from_iterator(Parser {
+    Stream::from(Parser {
         inner: Peekable::new(contents),
     })
 }
@@ -131,9 +131,7 @@ mod test {
 
     fn test_colorize(input: &str) -> String {
         let vec: Vec<char> = input.to_string().to_owned().chars().collect();
-        colorize(Stream::from_iterator(vec.into_iter()))
-            .to_vec()
-            .join("")
+        colorize(Stream::from(vec.into_iter())).to_vec().join("")
     }
 
     mod quotes {

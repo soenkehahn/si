@@ -34,34 +34,34 @@ mod test {
 
     #[test]
     fn allows_to_stream_chars() {
-        let mut stream = Peekable::new(Stream::from_iterator("x".chars()));
+        let mut stream = Peekable::new(Stream::from("x".chars()));
         assert_eq!(stream.next(), Some('x'));
         assert_eq!(stream.next(), None);
     }
 
     #[test]
     fn allows_to_peek_ahead() {
-        let mut stream = Peekable::new(Stream::from_iterator("x".chars()));
+        let mut stream = Peekable::new(Stream::from("x".chars()));
         assert_eq!(stream.peek(), Some('x'));
     }
 
     #[test]
     fn peeking_does_not_consume_chars() {
-        let mut stream = Peekable::new(Stream::from_iterator("x".chars()));
+        let mut stream = Peekable::new(Stream::from("x".chars()));
         stream.peek();
         assert_eq!(stream.next(), Some('x'));
     }
 
     #[test]
     fn peeking_works_twice() {
-        let mut stream = Peekable::new(Stream::from_iterator("ab".chars()));
+        let mut stream = Peekable::new(Stream::from("ab".chars()));
         stream.peek();
         assert_eq!(stream.peek(), Some('a'));
     }
 
     #[test]
     fn peeking_works_after_next() {
-        let mut stream = Peekable::new(Stream::from_iterator("ab".chars()));
+        let mut stream = Peekable::new(Stream::from("ab".chars()));
         stream.next();
         assert_eq!(stream.peek(), Some('b'));
     }

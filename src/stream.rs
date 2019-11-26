@@ -14,10 +14,6 @@ impl<A: 'static> Stream<A> {
         Stream(Box::new(function))
     }
 
-    pub fn from_iterator<I: std::iter::Iterator<Item = A> + 'static>(mut input: I) -> Stream<A> {
-        Stream::new(move || input.next())
-    }
-
     pub fn empty() -> Stream<A> {
         Stream(Box::new(|| None))
     }
@@ -31,6 +27,12 @@ impl<A: 'static> Stream<A> {
 
     pub fn flat_map<B, Next: Fn(A) -> Stream<B> + 'static>(self, next: Next) -> Stream<B> {
         self.map(next).flatten()
+    }
+}
+
+impl<A, I: Iterator<Item = A> + 'static> From<I> for Stream<A> {
+    fn from(mut iterator: I) -> Self {
+        Stream::new(move || iterator.next())
     }
 }
 
@@ -98,21 +100,21 @@ mod stream {
 
     #[test]
     fn allows_to_convert_from_iterator() {
-        let from_next = Stream::from_iterator(vec![1, 2, 3].into_iter());
+        let from_next = Stream::from(vec![1, 2, 3].into_iter());
         assert_eq!(vec![1, 2, 3], from_next.to_vec());
     }
 
     #[test]
     fn map_works() {
-        let from_next: Stream<i32> = Stream::from_iterator(vec![1, 2, 3].into_iter());
+        let from_next: Stream<i32> = Stream::from(vec![1, 2, 3].into_iter());
         let mapped = from_next.map(|x| x.pow(2));
         assert_eq!(vec![1, 4, 9], mapped.to_vec());
     }
 
     #[test]
     fn flatten_works() {
-        let from_next = Stream::from_iterator(vec!["foo", "bar"].into_iter())
-            .map(|x| Stream::from_iterator(x.chars()));
+        let from_next =
+            Stream::from(vec!["foo", "bar"].into_iter()).map(|x| Stream::from(x.chars()));
         assert_eq!(
             vec!['f', 'o', 'o', 'b', 'a', 'r'],
             from_next.flatten().to_vec()
@@ -121,8 +123,8 @@ mod stream {
 
     #[test]
     fn flatmap_works() {
-        let stream = Stream::from_iterator(vec!["foo", "bar"].into_iter())
-            .flat_map(|x| Stream::from_iterator(x.chars()));
+        let stream =
+            Stream::from(vec!["foo", "bar"].into_iter()).flat_map(|x| Stream::from(x.chars()));
         assert_eq!(vec!['f', 'o', 'o', 'b', 'a', 'r'], stream.to_vec());
     }
 }
