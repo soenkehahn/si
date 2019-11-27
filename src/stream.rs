@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::fs;
 use std::io::BufReader;
 use std::path::Path;
@@ -33,6 +35,28 @@ impl<A: 'static> Stream<A> {
             Some(x) => Some(function(x)),
             None => None,
         })
+    }
+
+    pub fn filter<F: FnMut(&A) -> bool + 'static>(mut self, mut function: F) -> Stream<A> {
+        Stream::new(move || loop {
+            match self.next() {
+                Some(a) if function(&a) => return Some(a),
+                Some(_) => {}
+                None => return None,
+            }
+        })
+    }
+
+    pub fn fold<Accumulator, F: FnMut(Accumulator, A) -> Accumulator>(
+        self,
+        initial: Accumulator,
+        mut function: F,
+    ) -> Accumulator {
+        let mut accumulator = initial;
+        for a in self.into_iter() {
+            accumulator = function(accumulator, a);
+        }
+        accumulator
     }
 
     pub fn flat_map<B, Next: FnMut(A) -> Stream<B> + 'static>(self, next: Next) -> Stream<B> {
@@ -136,6 +160,18 @@ mod stream {
         let from_next: Stream<i32> = Stream::from(vec![1, 2, 3].into_iter());
         let mapped = from_next.map(|x| x.pow(2));
         assert_eq!(vec![1, 4, 9], mapped.to_vec());
+    }
+
+    #[test]
+    fn filter_works() {
+        let stream = Stream::from(1..6).filter(|x| x % 2 == 1);
+        assert_eq!(stream.to_vec(), vec![1, 3, 5]);
+    }
+
+    #[test]
+    fn fold_works() {
+        let sum = Stream::from(1..6).fold(0, |sum: i32, a| sum + a);
+        assert_eq!(sum, 15);
     }
 
     #[test]
