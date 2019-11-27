@@ -53,7 +53,7 @@ impl<A: 'static> Stream<A> {
         mut function: F,
     ) -> Accumulator {
         let mut accumulator = initial;
-        for a in self.into_iter() {
+        for a in self {
             accumulator = function(accumulator, a);
         }
         accumulator
@@ -102,6 +102,18 @@ impl<A: Clone> Stream<A> {
             None => None,
         }
     }
+
+    pub fn replicate(element: A, n: u32) -> Stream<A> {
+        let mut counter = 0;
+        Stream::new(move || {
+            if counter < n {
+                counter += 1;
+                Some(element.clone())
+            } else {
+                None
+            }
+        })
+    }
 }
 
 impl Stream<char> {
@@ -131,6 +143,19 @@ impl<A> Iterator for StreamIterator<A> {
     }
 }
 
+#[macro_export]
+macro_rules! stream {
+    ($($x:expr),*) => {
+        crate::stream::Stream::from(vec![$($x),*].into_iter())
+    };
+    ($($x:expr,)*) => {
+        stream![$($x),*]
+    };
+    ($element:expr; $n:expr) => {
+        crate::stream::Stream::replicate($element, $n)
+    };
+}
+
 #[cfg(test)]
 mod stream {
     use super::*;
@@ -141,23 +166,54 @@ mod stream {
         }
     }
 
-    #[test]
-    fn allows_to_iterate_over_a_vector() {
-        let vec = vec![1, 2, 3];
-        let mut vec_iter = vec.into_iter();
-        let stream = Stream::new(move || vec_iter.next());
-        assert_eq!(vec![1, 2, 3], stream.to_vec());
+    mod conversions {
+        use super::*;
+
+        #[test]
+        fn allows_to_convert_from_iterator() {
+            let iter = vec![1, 2, 3].into_iter();
+            let from_next = Stream::from(iter);
+            assert_eq!(from_next.to_vec(), vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn allows_to_convert_into_iterator() {
+            let stream = stream!(1, 2, 3).into_iter();
+            assert_eq!(stream.collect::<Vec<_>>(), vec![1, 2, 3]);
+        }
     }
 
-    #[test]
-    fn allows_to_convert_from_iterator() {
-        let from_next = Stream::from(vec![1, 2, 3].into_iter());
-        assert_eq!(vec![1, 2, 3], from_next.to_vec());
+    mod stream_macro {
+        use super::*;
+
+        #[test]
+        fn allows_to_convert_from_elements() {
+            let stream: Stream<i32> = stream![1, 2, 3];
+            assert_eq!(stream.to_vec(), vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn allows_to_create_empty_streams() {
+            let stream: Stream<i32> = stream![];
+            assert_eq!(stream.to_vec(), vec![]);
+        }
+
+        #[test]
+        fn allows_to_trailing_commas() {
+            let stream: Stream<i32> = stream![1, 2, 3,];
+            assert_eq!(stream.to_vec(), vec![1, 2, 3]);
+        }
+
+        #[test]
+        fn allows_to_replicate_a_given_element() {
+            let stream: Stream<i32> = stream![42; 3];
+            assert_eq!(stream.to_vec(), vec![42, 42, 42]);
+        }
     }
 
     #[test]
     fn map_works() {
-        let from_next: Stream<i32> = Stream::from(vec![1, 2, 3].into_iter());
+        let from_next: Stream<i32> = stream![1, 2, 3];
         let mapped = from_next.map(|x| x.pow(2));
         assert_eq!(vec![1, 4, 9], mapped.to_vec());
     }
@@ -176,24 +232,21 @@ mod stream {
 
     #[test]
     fn flatten_works() {
-        let from_next =
-            Stream::from(vec!["foo", "bar"].into_iter()).map(|x| Stream::from(x.chars()));
-        assert_eq!(
-            vec!['f', 'o', 'o', 'b', 'a', 'r'],
-            from_next.flatten().to_vec()
-        );
+        let flattened = stream!["foo", "bar"]
+            .map(|x| Stream::from(x.chars()))
+            .flatten();
+        assert_eq!(vec!['f', 'o', 'o', 'b', 'a', 'r'], flattened.to_vec());
     }
 
     #[test]
     fn flatmap_works() {
-        let stream =
-            Stream::from(vec!["foo", "bar"].into_iter()).flat_map(|x| Stream::from(x.chars()));
+        let stream = stream!["foo", "bar"].flat_map(|x| Stream::from(x.chars()));
         assert_eq!(vec!['f', 'o', 'o', 'b', 'a', 'r'], stream.to_vec());
     }
 
     #[test]
     fn push_works() {
-        let mut stream = Stream::from(vec!["bar", "baz"].into_iter().map(|x| x.to_string()));
+        let mut stream = stream!["bar", "baz"].map(|x| x.to_string());
         stream.push("foo".to_string());
         assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
     }
@@ -203,7 +256,7 @@ mod stream {
 
         #[test]
         fn peek_works() {
-            let mut stream = Stream::from(vec!["foo", "bar"].into_iter().map(|x| x.to_string()));
+            let mut stream = stream!["foo", "bar"].map(|x| x.to_string());
             assert_eq!(stream.peek(), Some("foo".to_string()));
             assert_eq!(vec!["foo", "bar"], stream.to_vec());
         }
