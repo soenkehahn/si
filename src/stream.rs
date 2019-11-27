@@ -63,7 +63,7 @@ impl<A: 'static> Stream<A> {
         self.map(next).flatten()
     }
 
-    pub fn cons(&mut self, head: A) {
+    pub fn push(&mut self, head: A) {
         let original = std::mem::replace(&mut self.0, Box::new(|| None));
         self.0 = Box::new(move || Some((Stream(original), head)));
     }
@@ -96,7 +96,7 @@ impl<A: Clone> Stream<A> {
     pub fn peek(&mut self) -> Option<A> {
         match self.next() {
             Some(a) => {
-                self.cons(a.clone());
+                self.push(a.clone());
                 Some(a)
             }
             None => None,
@@ -192,9 +192,9 @@ mod stream {
     }
 
     #[test]
-    fn cons_works() {
+    fn push_works() {
         let mut stream = Stream::from(vec!["bar", "baz"].into_iter().map(|x| x.to_string()));
-        stream.cons("foo".to_string());
+        stream.push("foo".to_string());
         assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
     }
 
