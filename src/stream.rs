@@ -68,6 +68,18 @@ impl<A> Stream<Stream<A>> {
     }
 }
 
+impl<A: Clone> Stream<A> {
+    fn peek(&mut self) -> Option<A> {
+        match self.next() {
+            Some(a) => {
+                self.cons(a.clone());
+                Some(a)
+            }
+            None => None,
+        }
+    }
+}
+
 impl Stream<char> {
     pub fn read_utf8_file(file: &Path) -> Result<Stream<char>, std::io::Error> {
         let mut file = BufReader::new(fs::File::open(file)?);
@@ -148,5 +160,12 @@ mod stream {
         let mut stream = Stream::from(vec!["bar", "baz"].into_iter().map(|x| x.to_string()));
         stream.cons("foo".to_string());
         assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
+    }
+
+    #[test]
+    fn peek_works() {
+        let mut stream = Stream::from(vec!["foo", "bar"].into_iter().map(|x| x.to_string()));
+        assert_eq!(stream.peek(), Some("foo".to_string()));
+        assert_eq!(vec!["foo", "bar"], stream.to_vec());
     }
 }
