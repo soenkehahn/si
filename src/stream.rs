@@ -156,6 +156,23 @@ macro_rules! stream {
     };
 }
 
+impl<A: ToString> Stream<A> {
+    pub fn into_string(self) -> String {
+        let mut first = true;
+        let mut result = "stream![".to_string();
+        for a in self {
+            if !first {
+                result.push_str(", ");
+            } else {
+                first = false;
+            }
+            result.push_str(&a.to_string());
+        }
+        result.push_str("]");
+        result
+    }
+}
+
 #[cfg(test)]
 mod stream {
     use super::*;
@@ -209,6 +226,13 @@ mod stream {
             let stream: Stream<i32> = stream![42; 3];
             assert_eq!(stream.to_vec(), vec![42, 42, 42]);
         }
+    }
+
+    #[test]
+    fn into_string_converts_into_stream_macro() {
+        assert_eq!(stream![1, 2, 3].into_string(), "stream![1, 2, 3]");
+        let empty: Stream<i32> = stream![];
+        assert_eq!(empty.into_string(), "stream![]");
     }
 
     #[test]
