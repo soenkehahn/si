@@ -5,13 +5,13 @@ use std::io::BufReader;
 use std::path::Path;
 use utf8_chars::BufReadCharsExt;
 
-pub struct Stream<A: 'static>(Box<dyn FnOnce() -> Option<(Stream<A>, A)> + 'static>);
+pub struct Stream<A: 'static>(Box<dyn FnOnce() -> Option<(A, Stream<A>)> + 'static>);
 
 impl<A: 'static> Stream<A> {
     pub fn next(&mut self) -> Option<A> {
         let original = std::mem::replace(&mut self.0, Box::new(|| None));
         match original() {
-            Some((next_stream, next_element)) => {
+            Some((next_element, next_stream)) => {
                 self.0 = next_stream.0;
                 Some(next_element)
             }
@@ -21,7 +21,7 @@ impl<A: 'static> Stream<A> {
 
     pub fn new<F: FnMut() -> Option<A> + 'static>(mut function: F) -> Stream<A> {
         Stream(Box::new(move || match function() {
-            Some(next) => Some((Stream::new(function), next)),
+            Some(next) => Some((next, Stream::new(function))),
             None => None,
         }))
     }
@@ -65,7 +65,7 @@ impl<A: 'static> Stream<A> {
 
     pub fn push(&mut self, head: A) {
         let original = std::mem::replace(&mut self.0, Box::new(|| None));
-        self.0 = Box::new(move || Some((Stream(original), head)));
+        self.0 = Box::new(move || Some((head, Stream(original))));
     }
 }
 
