@@ -69,7 +69,7 @@ impl<A> Stream<Stream<A>> {
 }
 
 impl<A: Clone> Stream<A> {
-    fn peek(&mut self) -> Option<A> {
+    pub fn peek(&mut self) -> Option<A> {
         match self.next() {
             Some(a) => {
                 self.cons(a.clone());
@@ -162,10 +162,41 @@ mod stream {
         assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
     }
 
-    #[test]
-    fn peek_works() {
-        let mut stream = Stream::from(vec!["foo", "bar"].into_iter().map(|x| x.to_string()));
-        assert_eq!(stream.peek(), Some("foo".to_string()));
-        assert_eq!(vec!["foo", "bar"], stream.to_vec());
+    mod peek {
+        use super::*;
+
+        #[test]
+        fn peek_works() {
+            let mut stream = Stream::from(vec!["foo", "bar"].into_iter().map(|x| x.to_string()));
+            assert_eq!(stream.peek(), Some("foo".to_string()));
+            assert_eq!(vec!["foo", "bar"], stream.to_vec());
+        }
+
+        #[test]
+        fn allows_to_peek_ahead() {
+            let mut stream = Stream::from("x".chars());
+            assert_eq!(stream.peek(), Some('x'));
+        }
+
+        #[test]
+        fn peeking_does_not_consume_chars() {
+            let mut stream = Stream::from("x".chars());
+            stream.peek();
+            assert_eq!(stream.next(), Some('x'));
+        }
+
+        #[test]
+        fn peeking_works_twice() {
+            let mut stream = Stream::from("ab".chars());
+            stream.peek();
+            assert_eq!(stream.peek(), Some('a'));
+        }
+
+        #[test]
+        fn peeking_works_after_next() {
+            let mut stream = Stream::from("ab".chars());
+            stream.next();
+            assert_eq!(stream.peek(), Some('b'));
+        }
     }
 }

@@ -1,17 +1,12 @@
-mod peekable;
-
-use self::peekable::Peekable;
 use crate::stream::Stream;
 use colored::*;
 
 pub fn colorize(contents: Stream<char>) -> Stream<String> {
-    Stream::from(Parser {
-        inner: Peekable::new(contents),
-    })
+    Stream::from(Parser { inner: contents })
 }
 
 pub struct Parser {
-    inner: Peekable<char>,
+    inner: Stream<char>,
 }
 
 type ParseResult<A> = Result<A, ()>;
@@ -112,6 +107,7 @@ impl Parser {
         }
         result.into_iter()
     }
+
     fn parse_one_or_more<A>(
         &mut self,
         parse_element: fn(&mut Parser) -> ParseResult<A>,
