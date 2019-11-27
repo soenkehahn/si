@@ -18,15 +18,28 @@ impl<A: 'static> Stream<A> {
         Stream(Box::new(|| None))
     }
 
-    pub fn map<B, F: Fn(A) -> B + 'static>(mut self, function: F) -> Stream<B> {
+    pub fn map<B, F: FnMut(A) -> B + 'static>(mut self, mut function: F) -> Stream<B> {
         Stream(Box::new(move || match self.next() {
             Some(x) => Some(function(x)),
             None => None,
         }))
     }
 
-    pub fn flat_map<B, Next: Fn(A) -> Stream<B> + 'static>(self, next: Next) -> Stream<B> {
+    pub fn flat_map<B, Next: FnMut(A) -> Stream<B> + 'static>(self, next: Next) -> Stream<B> {
         self.map(next).flatten()
+    }
+
+    pub fn cons(&mut self, head: A) {
+        let mut original = std::mem::replace(&mut self.0, Box::new(|| None));
+        let mut head_option = Some(head);
+        self.0 = Box::new(move || {
+            println!("check is_some");
+            if head_option.is_some() {
+                std::mem::replace(&mut head_option, None)
+            } else {
+                original()
+            }
+        });
     }
 }
 
@@ -126,5 +139,12 @@ mod stream {
         let stream =
             Stream::from(vec!["foo", "bar"].into_iter()).flat_map(|x| Stream::from(x.chars()));
         assert_eq!(vec!['f', 'o', 'o', 'b', 'a', 'r'], stream.to_vec());
+    }
+
+    #[test]
+    fn cons_works() {
+        let mut stream = Stream::from(vec!["bar", "baz"].into_iter().map(|x| x.to_string()));
+        stream.cons("foo".to_string());
+        assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
     }
 }
