@@ -3,15 +3,25 @@ use std::io::BufReader;
 use std::path::Path;
 use utf8_chars::BufReadCharsExt;
 
-pub struct Stream<A: 'static>(Box<dyn FnMut() -> Option<A> + 'static>);
+pub struct Stream<A: 'static>(Box<dyn FnOnce() -> Option<(Stream<A>, A)> + 'static>);
 
 impl<A: 'static> Stream<A> {
     pub fn next(&mut self) -> Option<A> {
-        (self.0)()
+        let original = std::mem::replace(&mut self.0, Box::new(|| None));
+        match original() {
+            Some((next_stream, next_element)) => {
+                self.0 = next_stream.0;
+                Some(next_element)
+            }
+            None => None,
+        }
     }
 
-    pub fn new<F: FnMut() -> Option<A> + 'static>(function: F) -> Stream<A> {
-        Stream(Box::new(function))
+    pub fn new<F: FnMut() -> Option<A> + 'static>(mut function: F) -> Stream<A> {
+        Stream(Box::new(move || match function() {
+            Some(next) => Some((Stream::new(function), next)),
+            None => None,
+        }))
     }
 
     pub fn empty() -> Stream<A> {
@@ -19,10 +29,10 @@ impl<A: 'static> Stream<A> {
     }
 
     pub fn map<B, F: FnMut(A) -> B + 'static>(mut self, mut function: F) -> Stream<B> {
-        Stream(Box::new(move || match self.next() {
+        Stream::new(move || match self.next() {
             Some(x) => Some(function(x)),
             None => None,
-        }))
+        })
     }
 
     pub fn flat_map<B, Next: FnMut(A) -> Stream<B> + 'static>(self, next: Next) -> Stream<B> {
@@ -30,16 +40,8 @@ impl<A: 'static> Stream<A> {
     }
 
     pub fn cons(&mut self, head: A) {
-        let mut original = std::mem::replace(&mut self.0, Box::new(|| None));
-        let mut head_option = Some(head);
-        self.0 = Box::new(move || {
-            println!("check is_some");
-            if head_option.is_some() {
-                std::mem::replace(&mut head_option, None)
-            } else {
-                original()
-            }
-        });
+        let original = std::mem::replace(&mut self.0, Box::new(|| None));
+        self.0 = Box::new(move || Some((Stream(original), head)));
     }
 }
 
@@ -52,7 +54,7 @@ impl<A, I: Iterator<Item = A> + 'static> From<I> for Stream<A> {
 impl<A> Stream<Stream<A>> {
     pub fn flatten(mut self) -> Stream<A> {
         let mut current = Stream::empty();
-        Stream(Box::new(move || loop {
+        Stream::new(move || loop {
             match current.next() {
                 Some(a) => return Some(a),
                 None => match self.next() {
@@ -62,7 +64,7 @@ impl<A> Stream<Stream<A>> {
                     None => return None,
                 },
             }
-        }))
+        })
     }
 }
 
