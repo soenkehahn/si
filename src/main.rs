@@ -41,15 +41,18 @@ fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> 
     Ok(())
 }
 
+fn separator() -> String {
+    format!("{}\n", "---".yellow().bold())
+}
+
 fn write_separator(stdout: &mut dyn Write) -> R<()> {
-    stdout.write_all(format!("{}\n", "---".yellow().bold()).as_bytes())?;
+    stdout.write_all(separator().as_bytes())?;
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use itertools::Itertools;
     use std::fs;
     use std::io::Cursor;
     use std::path::Path;
@@ -75,17 +78,25 @@ mod test {
     impl Setup {
         pub fn run(&mut self, args: Vec<String>) -> R<()> {
             let args = vec![vec!["si".to_string()], args].concat();
-            run(&mut args.into_iter(), &mut self.stdout)
-        }
-
-        pub fn stdout(&self) -> String {
-            let output = String::from_utf8_lossy(self.stdout.get_ref()).into_owned();
-            eprintln!("stdout:\n{}", output);
-            output
+            run(&mut args.into_iter(), &mut self.stdout)?;
+            eprintln!("stdout:\n{}", self.stdout());
+            Ok(())
         }
 
         pub fn tempdir(&self) -> &Path {
             self.tempdir.path()
+        }
+
+        pub fn stdout(&self) -> String {
+            String::from_utf8_lossy(self.stdout.get_ref()).into_owned()
+        }
+
+        pub fn get_section(&self, n: usize) -> String {
+            self.stdout()
+                .split(&separator())
+                .nth(n)
+                .expect("not enough sections")
+                .to_string()
         }
     }
 
@@ -93,10 +104,6 @@ mod test {
         fn drop(&mut self) {
             std::env::set_current_dir(&self.outer_directory).unwrap();
         }
-    }
-
-    pub fn drop_stats(output: String) -> String {
-        output.split("\n").skip(2).join("\n")
     }
 
     pub fn get_line(output: String, line: usize) -> String {
@@ -112,7 +119,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "bar")?;
         setup.run(vec!["foo".to_string()])?;
-        assert!(drop_stats(setup.stdout()).ends_with("bar"));
+        assert!(setup.get_section(1).ends_with("bar"));
         Ok(())
     }
 

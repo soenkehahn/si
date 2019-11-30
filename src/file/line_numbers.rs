@@ -54,7 +54,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo\nbar\nbaz\n")?;
         setup.run(vec!["foo".to_string()])?;
-        assert_eq!(drop_stats(setup.stdout()), "1 | foo\n2 | bar\n3 | baz\n");
+        assert_eq!(setup.get_section(1), "1 | foo\n2 | bar\n3 | baz\n");
         Ok(())
     }
 
@@ -63,7 +63,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo\n\nbar\n")?;
         setup.run(vec!["foo".to_string()])?;
-        assert_eq!(drop_stats(setup.stdout()), "1 | foo\n2 |\n3 | bar\n");
+        assert_eq!(setup.get_section(1), "1 | foo\n2 |\n3 | bar\n");
         Ok(())
     }
 
@@ -71,7 +71,8 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), source.join("\n"))?;
         setup.run(vec!["foo".to_string()])?;
-        Ok(drop_stats(setup.stdout())
+        Ok(setup
+            .get_section(1)
             .lines()
             .map(|x| x.to_string())
             .collect::<Vec<String>>())

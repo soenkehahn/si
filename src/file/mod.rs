@@ -33,7 +33,9 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo \"bar\"")?;
         setup.run(vec!["foo".to_string()])?;
-        assert!(drop_stats(setup.stdout()).ends_with(&format!("foo {}", "\"bar\"".yellow().bold())));
+        assert!(setup
+            .get_section(1)
+            .ends_with(&format!("foo {}", "\"bar\"".yellow().bold())));
         Ok(())
     }
 
