@@ -30,6 +30,10 @@ impl<A: 'static> Stream<A> {
         Stream(Box::new(|| None))
     }
 
+    pub fn single(a: A) -> Stream<A> {
+        Stream(Box::new(|| Some((a, Stream::empty()))))
+    }
+
     pub fn map<B, F: FnMut(A) -> B + 'static>(mut self, mut function: F) -> Stream<B> {
         Stream::new(move || match self.next() {
             Some(x) => Some(function(x)),
@@ -63,9 +67,23 @@ impl<A: 'static> Stream<A> {
         self.map(next).flatten()
     }
 
-    pub fn push(&mut self, head: A) {
-        let original = std::mem::replace(&mut self.0, Box::new(|| None));
-        self.0 = Box::new(move || Some((head, Stream(original))));
+    pub fn concat(self, other: Stream<A>) -> Stream<A> {
+        Stream(Box::new(move || match self.0() {
+            Some((a, next)) => Some((a, next.concat(other))),
+            None => other.0(),
+        }))
+    }
+
+    pub fn append(self, last: A) -> Stream<A> {
+        self.concat(Stream::single(last))
+    }
+
+    pub fn prepend(self, head: A) -> Stream<A> {
+        Stream(Box::new(|| Some((head, self))))
+    }
+
+    pub fn count<F: Fn(A) -> bool>(self, predicate: F) -> i32 {
+        self.fold(0, |count, a| if predicate(a) { count + 1 } else { count })
     }
 }
 
@@ -96,14 +114,15 @@ impl<A: Clone> Stream<A> {
     pub fn peek(&mut self) -> Option<A> {
         match self.next() {
             Some(a) => {
-                self.push(a.clone());
+                let original = std::mem::replace(self, Stream::empty());
+                *self = original.prepend(a.clone());
                 Some(a)
             }
             None => None,
         }
     }
 
-    pub fn replicate(element: A, n: u32) -> Stream<A> {
+    pub fn replicate(n: u32, element: A) -> Stream<A> {
         let mut counter = 0;
         Stream::new(move || {
             if counter < n {
@@ -122,6 +141,23 @@ impl Stream<char> {
         Ok(Stream::new(move || {
             file.read_char().expect("utf8 decoding error")
         }))
+    }
+}
+
+impl<Snippet: Into<Box<str>>> Stream<Snippet> {
+    pub fn join<Separator: Into<Box<str>>>(self, separator: Separator) -> String {
+        let separator: &str = &separator.into();
+        let mut first = true;
+        let mut result = "".to_string();
+        for string in self {
+            if !first {
+                result.push_str(separator);
+            } else {
+                first = false;
+            }
+            result.push_str(&string.into());
+        }
+        result
     }
 }
 
@@ -152,7 +188,7 @@ macro_rules! stream {
         stream![$($x),*]
     };
     ($element:expr; $n:expr) => {
-        crate::stream::Stream::replicate($element, $n)
+        crate::stream::Stream::replicate($n, $element)
     };
 }
 
@@ -174,7 +210,7 @@ impl<A: ToString> Stream<A> {
 }
 
 #[cfg(test)]
-mod stream {
+mod test {
     use super::*;
 
     impl<A> Stream<A> {
@@ -211,8 +247,14 @@ mod stream {
 
         #[test]
         fn allows_to_create_empty_streams() {
-            let stream: Stream<i32> = stream![];
+            let stream: Stream<i32> = Stream::empty();
             assert_eq!(stream.to_vec(), vec![]);
+        }
+
+        #[test]
+        fn allows_to_create_streams_with_one_element() {
+            let stream = Stream::single("foo");
+            assert_eq!(stream.to_vec(), vec!["foo"]);
         }
 
         #[test]
@@ -269,9 +311,22 @@ mod stream {
     }
 
     #[test]
-    fn push_works() {
-        let mut stream = stream!["bar", "baz"].map(|x| x.to_string());
-        stream.push("foo".to_string());
+    fn concat_works() {
+        let mut stream = stream!["foo", "bar"];
+        stream = stream.concat(stream!["baz"]);
+        assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
+    }
+
+    #[test]
+    fn append_works() {
+        let mut stream = stream!["foo", "bar"];
+        stream = stream.append("baz");
+        assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
+    }
+
+    #[test]
+    fn prepend_works() {
+        let stream = stream!["bar", "baz"].prepend("foo");
         assert_eq!(vec!["foo", "bar", "baz"], stream.to_vec());
     }
 
@@ -280,8 +335,8 @@ mod stream {
 
         #[test]
         fn peek_works() {
-            let mut stream = stream!["foo", "bar"].map(|x| x.to_string());
-            assert_eq!(stream.peek(), Some("foo".to_string()));
+            let mut stream = stream!["foo", "bar"];
+            assert_eq!(stream.peek(), Some("foo"));
             assert_eq!(vec!["foo", "bar"], stream.to_vec());
         }
 
@@ -310,6 +365,41 @@ mod stream {
             let mut stream = Stream::from("ab".chars());
             stream.next();
             assert_eq!(stream.peek(), Some('b'));
+        }
+    }
+
+    #[test]
+    fn count_works() {
+        let stream = stream![1, 2, 3, 4, 5, 6, 7];
+        assert_eq!(stream.count(|x| x > 3), 4);
+    }
+
+    mod join {
+        use super::*;
+
+        #[test]
+        fn works() {
+            let stream = stream!("foo", "bar");
+            assert_eq!(stream.join("#"), "foo#bar");
+        }
+
+        #[test]
+        fn works_with_both_str_and_string() {
+            let str_stream: Stream<&str> = stream!();
+            str_stream.join("");
+            let str_stream: Stream<&str> = stream!();
+            str_stream.join("".to_string());
+            let string_stream: Stream<String> = stream!();
+            string_stream.join("");
+            let string_stream: Stream<String> = stream!();
+            string_stream.join("".to_string());
+        }
+
+        #[test]
+        fn works_with_empty_inputs() {
+            assert_eq!(stream!("", "foo").join("#"), "#foo");
+            assert_eq!(stream!("foo", "").join("#"), "foo#");
+            assert_eq!(stream!("", "foo", "").join("#"), "#foo#");
         }
     }
 }

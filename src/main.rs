@@ -80,7 +80,9 @@ mod test {
         }
 
         pub fn stdout(&self) -> String {
-            String::from_utf8_lossy(self.stdout.get_ref()).into_owned()
+            let output = String::from_utf8_lossy(self.stdout.get_ref()).into_owned();
+            eprintln!("stdout:\n{}", output);
+            output
         }
 
         pub fn tempdir(&self) -> &Path {
