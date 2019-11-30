@@ -1,12 +1,12 @@
-use crate::stream::Stream;
 use colored::*;
+use source::Source;
 
-pub fn colorize(contents: Stream<char>) -> Stream<String> {
-    Stream::from(Parser { inner: contents })
+pub fn colorize(contents: Source<char>) -> Source<String> {
+    Source::from(Parser { inner: contents })
 }
 
 pub struct Parser {
-    inner: Stream<char>,
+    inner: Source<char>,
 }
 
 type ParseResult<A> = Result<A, ()>;
@@ -127,7 +127,7 @@ mod test {
 
     fn test_colorize(input: &str) -> String {
         let vec: Vec<char> = input.to_string().to_owned().chars().collect();
-        colorize(Stream::from(vec.into_iter())).to_vec().join("")
+        colorize(Source::from(vec.into_iter())).join("")
     }
 
     mod quotes {

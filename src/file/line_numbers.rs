@@ -1,12 +1,12 @@
-use crate::stream::Stream;
 use crate::R;
+use source::Source;
 use std::path::Path;
 
-pub fn add(file: &Path, mut input: Stream<char>) -> R<Stream<String>> {
+pub fn add(file: &Path, mut input: Source<char>) -> R<Source<String>> {
     let max_number_length = max_number_length(file)?;
     let mut line_start = true;
     let mut line_number = 0;
-    Ok(Stream::new(move || match input.next() {
+    Ok(Source::new(move || match input.next() {
         Some(char) if line_start => {
             line_number += 1;
             Some(if char == '\n' {
@@ -26,7 +26,7 @@ pub fn add(file: &Path, mut input: Stream<char>) -> R<Stream<String>> {
 }
 
 fn max_number_length(file: &Path) -> R<usize> {
-    let count = Stream::read_utf8_file(file)?.count(|char| char == '\n');
+    let count = Source::read_utf8_file(file)?.count(|char| char == '\n');
     let max_digits = count.to_string().len();
     Ok(max_digits)
 }
@@ -38,15 +38,15 @@ fn pad(max_number_length: usize, n: i32) -> String {
     } else {
         0
     };
-    let padding_string: String = Stream::replicate(padding as u32, " ").join("");
+    let padding_string: String = Source::replicate(padding as u32, " ").join("");
     format!("{}{}", padding_string, n)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::stream;
     use crate::test::*;
+    use source::source;
     use std::fs;
 
     #[test]
@@ -67,9 +67,9 @@ mod test {
         Ok(())
     }
 
-    fn run_on_lines(stream: Stream<&str>) -> R<Vec<String>> {
+    fn run_on_lines(source: Source<&str>) -> R<Vec<String>> {
         let mut setup = setup()?;
-        fs::write(setup.tempdir().join("foo"), stream.join("\n"))?;
+        fs::write(setup.tempdir().join("foo"), source.join("\n"))?;
         setup.run(vec!["foo".to_string()])?;
         Ok(drop_stats(setup.stdout())
             .lines()
@@ -82,7 +82,7 @@ mod test {
 
         #[test]
         fn numbers_always_take_up_the_same_number_of_characters() -> R<()> {
-            let lines = run_on_lines(stream!["foo"; 12].append(""))?;
+            let lines = run_on_lines(source!["foo"; 12].append(""))?;
             assert_eq!(lines[0], " 1 | foo");
             assert_eq!(lines[11], "12 | foo");
             Ok(())
@@ -90,21 +90,21 @@ mod test {
 
         #[test]
         fn line_number_padding_works_for_empty_lines() -> R<()> {
-            let lines = run_on_lines(stream!["foo", ""].concat(stream!["foo"; 12]))?;
+            let lines = run_on_lines(source!["foo", ""].concat(source!["foo"; 12]))?;
             assert_eq!(lines[1], " 2 |");
             Ok(())
         }
 
         #[test]
         fn corner_case_1() -> R<()> {
-            let lines = run_on_lines(stream!["foo"; 9].append(""))?;
+            let lines = run_on_lines(source!["foo"; 9].append(""))?;
             assert_eq!(lines.last(), Some(&"9 | foo".to_string()));
             Ok(())
         }
 
         #[test]
         fn corner_case_2() -> R<()> {
-            let lines = run_on_lines(stream!["foo"; 10].append(""))?;
+            let lines = run_on_lines(source!["foo"; 10].append(""))?;
             assert_eq!(lines[8], " 9 | foo");
             assert_eq!(lines[9], "10 | foo");
             Ok(())
@@ -112,14 +112,14 @@ mod test {
 
         #[test]
         fn corner_case_3() -> R<()> {
-            let lines = run_on_lines(stream!["foo"; 99].append(""))?;
+            let lines = run_on_lines(source!["foo"; 99].append(""))?;
             assert_eq!(lines.last(), Some(&"99 | foo".to_string()));
             Ok(())
         }
 
         #[test]
         fn corner_case_4() -> R<()> {
-            let lines = run_on_lines(stream!["foo"; 100].append(""))?;
+            let lines = run_on_lines(source!["foo"; 100].append(""))?;
             assert_eq!(lines[8], "  9 | foo");
             assert_eq!(lines[9], " 10 | foo");
             assert_eq!(lines[98], " 99 | foo");

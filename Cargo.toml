@@ -7,9 +7,9 @@ edition = "2018"
 [dependencies]
 colored = "*"
 pager = "*"
-tempdir = "*"
-utf8-chars = "*"
+source = "0.1.0"
 
 [dev-dependencies]
-strip-ansi-escapes = "*"
 itertools = "*"
+strip-ansi-escapes = "*"
+tempdir = "*"

@@ -2,8 +2,8 @@ mod colorize;
 mod line_numbers;
 
 use self::colorize::colorize;
-use crate::stream::Stream;
 use crate::{write_separator, R};
+use source::Source;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -14,8 +14,8 @@ pub fn output(stdout: &mut dyn Write, file: PathBuf) -> R<()> {
     write_separator(stdout)?;
     for chunk in line_numbers::add(
         &file,
-        colorize(Stream::read_utf8_file(&file)?)
-            .flat_map(|x| Stream::from(x.chars().collect::<Vec<_>>().into_iter())),
+        colorize(Source::read_utf8_file(&file)?)
+            .flat_map(|x| Source::from(x.chars().collect::<Vec<_>>().into_iter())),
     )? {
         write!(stdout, "{}", chunk)?;
     }

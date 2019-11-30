@@ -1,6 +1,5 @@
 mod directory;
 mod file;
-mod stream;
 
 use colored::*;
 use pager::Pager;
