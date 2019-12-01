@@ -1,11 +1,12 @@
-use crate::R;
+use crate::{Context, R};
 use std::fmt::Display;
 use std::fs;
-use std::io::Write;
 
-pub fn output(stdout: &mut dyn Write, children: &[fs::DirEntry]) -> R<()> {
+pub fn output(context: &mut Context, children: &[fs::DirEntry]) -> R<()> {
     let stats = get_stats(&children)?;
-    stdout.write_all(format!("{}\n", stats).as_bytes())?;
+    context
+        .stdout
+        .write_all(format!("{}\n", stats).as_bytes())?;
     Ok(())
 }
 

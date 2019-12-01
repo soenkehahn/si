@@ -1,15 +1,14 @@
 use crate::directory::{format_dir_entry, read_directory};
-use crate::R;
+use crate::{Context, R};
 use source::Source;
 use std::fs;
-use std::io::Write;
 
-pub fn output(stdout: &mut dyn Write, children: Vec<fs::DirEntry>) -> R<()> {
-    output_children(stdout, children, vec![])
+pub fn output(context: &mut Context, children: Vec<fs::DirEntry>) -> R<()> {
+    output_children(context, children, vec![])
 }
 
 fn output_children(
-    stdout: &mut dyn Write,
+    context: &mut Context,
     children: Vec<fs::DirEntry>,
     parent_prefix: Vec<bool>,
 ) -> R<()> {
@@ -22,14 +21,14 @@ fn output_children(
                 clone
             };
             writeln!(
-                stdout,
+                context.stdout,
                 "{}{}",
                 render_prefix(child_prefix.clone()),
                 format_dir_entry(&child)?
             )?;
             if child.path().is_dir() {
                 let grand_children = read_directory(child.path())?;
-                output_children(stdout, grand_children, child_prefix)?;
+                output_children(context, grand_children, child_prefix)?;
             }
         }
     }

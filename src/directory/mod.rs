@@ -1,23 +1,22 @@
 mod stats;
 mod tree;
 
-use crate::{write_separator, R};
+use crate::{write_separator, Context, R};
 use colored::*;
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 
-pub fn output(stdout: &mut dyn Write, directory: PathBuf) -> R<()> {
+pub fn output(context: &mut Context, directory: PathBuf) -> R<()> {
     let children = read_directory(directory)?;
-    stats::output(stdout, &children)?;
-    write_separator(stdout)?;
-    output_file_listing(stdout, &children)?;
-    write_separator(stdout)?;
-    tree::output(stdout, children)?;
+    stats::output(context, &children)?;
+    write_separator(context)?;
+    output_file_listing(context, &children)?;
+    write_separator(context)?;
+    tree::output(context, children)?;
     Ok(())
 }
 
-fn output_file_listing(stdout: &mut dyn Write, children: &[fs::DirEntry]) -> R<()> {
+fn output_file_listing(context: &mut Context, children: &[fs::DirEntry]) -> R<()> {
     for child in children {
         let path = format_dir_entry(child)?;
         let list_entry = if child.path().is_dir() {
@@ -25,7 +24,9 @@ fn output_file_listing(stdout: &mut dyn Write, children: &[fs::DirEntry]) -> R<(
         } else {
             path
         };
-        stdout.write_all(format!("{}\n", list_entry).as_bytes())?;
+        context
+            .stdout
+            .write_all(format!("{}\n", list_entry).as_bytes())?;
     }
     Ok(())
 }

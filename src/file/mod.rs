@@ -2,22 +2,26 @@ mod colorize;
 mod line_numbers;
 
 use self::colorize::colorize;
-use crate::{write_separator, R};
+use crate::{write_separator, Context, R};
 use source::Source;
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 
-pub fn output(stdout: &mut dyn Write, file: PathBuf) -> R<()> {
+pub fn output(context: &mut Context, file: PathBuf) -> R<()> {
     let size = fs::metadata(&file)?.len();
-    writeln!(stdout, "file: {}, {} bytes", file.to_string_lossy(), size)?;
-    write_separator(stdout)?;
+    writeln!(
+        context.stdout,
+        "file: {}, {} bytes",
+        file.to_string_lossy(),
+        size
+    )?;
+    write_separator(context)?;
     for chunk in line_numbers::add(
         &file,
         colorize(Source::read_utf8_file(&file)?)
             .flat_map(|x| Source::from(x.chars().collect::<Vec<_>>().into_iter())),
     )? {
-        write!(stdout, "{}", chunk)?;
+        write!(context.stdout, "{}", chunk)?;
     }
     Ok(())
 }
@@ -47,7 +51,11 @@ mod test {
         assert_eq!(get_line(setup.stdout(), 0), "file: foo, 3 bytes");
         assert_eq!(
             get_line(setup.stdout(), 1),
-            "---".yellow().bold().to_string()
+            Source::replicate(TEST_TERMINAL_WIDTH as u32, "-")
+                .join("")
+                .yellow()
+                .bold()
+                .to_string()
         );
         Ok(())
     }

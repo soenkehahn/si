@@ -8,6 +8,7 @@ edition = "2018"
 colored = "*"
 pager = "*"
 source = "0.2.0"
+term_size = "*"
 
 [dev-dependencies]
 strip-ansi-escapes = "*"

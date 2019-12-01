@@ -3,19 +3,36 @@ mod file;
 
 use colored::*;
 use pager::Pager;
+use source::Source;
 use std::io::Write;
 use std::path::PathBuf;
 
 type R<A> = Result<A, Box<dyn std::error::Error>>;
 
-fn wrap_main(action: fn(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()>) {
+pub struct Context<'a> {
+    args: Vec<String>,
+    stdout: &'a mut dyn Write,
+    terminal_width: usize,
+}
+
+fn wrap_main(action: fn(context: &mut Context) -> R<()>) {
+    let terminal_width = match term_size::dimensions_stdout() {
+        Some((width, _)) => width,
+        None => panic!("fixme"),
+    };
     colored::control::set_override(true);
     Pager::with_pager("less -RFX").setup();
     let mut stdout = std::io::stdout();
-    let exitcode = match action(&mut std::env::args(), &mut stdout) {
+    let exitcode = match action(&mut Context {
+        args: std::env::args().collect(),
+        stdout: &mut stdout,
+        terminal_width,
+    }) {
         Ok(()) => 0,
         Err(error) => {
-            stdout.write_all(format!("{}", error).as_bytes()).unwrap();
+            std::io::stderr()
+                .write_all(format!("{}", error).as_bytes())
+                .unwrap();
             1
         }
     };
@@ -26,27 +43,41 @@ fn main() {
     wrap_main(run);
 }
 
-fn run(args: &mut dyn Iterator<Item = String>, stdout: &mut dyn Write) -> R<()> {
-    let entry = PathBuf::from(args.nth(1).unwrap_or_else(|| ".".to_string()));
+fn run(context: &mut Context) -> R<()> {
+    let entry = PathBuf::from(
+        context
+            .args
+            .get(1)
+            .cloned()
+            .unwrap_or_else(|| ".".to_string()),
+    );
     if !entry.exists() {
         return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
     }
     if entry.is_file() {
-        file::output(stdout, entry)?;
+        file::output(context, entry)?;
     } else if entry.is_dir() {
-        directory::output(stdout, entry)?;
+        directory::output(context, entry)?;
     } else {
         return Err(format!("unknown filetype for: {}", entry.to_string_lossy()).into());
     }
     Ok(())
 }
 
-fn separator() -> String {
-    format!("{}\n", "---".yellow().bold())
+fn separator(width: usize) -> String {
+    format!(
+        "{}\n",
+        Source::replicate(width as u32, "-")
+            .join("")
+            .yellow()
+            .bold()
+    )
 }
 
-fn write_separator(stdout: &mut dyn Write) -> R<()> {
-    stdout.write_all(separator().as_bytes())?;
+fn write_separator(context: &mut Context) -> R<()> {
+    context
+        .stdout
+        .write_all(separator(context.terminal_width).as_bytes())?;
     Ok(())
 }
 
@@ -75,10 +106,16 @@ mod test {
         })
     }
 
+    pub const TEST_TERMINAL_WIDTH: usize = 50;
+
     impl Setup {
         pub fn run(&mut self, args: Vec<String>) -> R<()> {
-            let args = vec![vec!["si".to_string()], args].concat();
-            run(&mut args.into_iter(), &mut self.stdout)?;
+            let context = &mut Context {
+                args: vec![vec!["si".to_string()], args].concat(),
+                stdout: &mut self.stdout,
+                terminal_width: TEST_TERMINAL_WIDTH,
+            };
+            run(context)?;
             eprintln!("stdout:\n{}", self.stdout());
             Ok(())
         }
@@ -93,7 +130,7 @@ mod test {
 
         pub fn get_section(&self, n: usize) -> String {
             self.stdout()
-                .split(&separator())
+                .split(&separator(TEST_TERMINAL_WIDTH))
                 .nth(n)
                 .expect("not enough sections")
                 .to_string()
@@ -131,6 +168,19 @@ mod test {
             result.map_err(|x| x.to_string()),
             Err("path not found: does_not_exist.txt\n".to_string())
         );
+        Ok(())
+    }
+
+    #[test]
+    fn separators_span_the_terminal_width() -> R<()> {
+        let mut setup = setup()?;
+        setup.run(vec![])?;
+        let expected = Source::replicate(TEST_TERMINAL_WIDTH as u32, "-")
+            .join("")
+            .yellow()
+            .bold()
+            .to_string();
+        assert_eq!(setup.stdout().lines().collect::<Vec<&str>>()[1], expected);
         Ok(())
     }
 }
