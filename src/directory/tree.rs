@@ -69,7 +69,7 @@ mod test {
         fs::write(setup.tempdir().join("foo"), "")?;
         fs::create_dir("bar")?;
         fs::write(setup.tempdir().join("bar/baz"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -88,7 +88,7 @@ mod test {
         let mut setup = setup()?;
         fs::create_dir_all("foo/bar")?;
         fs::write(setup.tempdir().join("foo/bar/baz"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -109,7 +109,7 @@ mod test {
         fs::write(setup.tempdir().join("dir/foo"), "")?;
         fs::write(setup.tempdir().join("dir/bar"), "")?;
         fs::write(setup.tempdir().join("dir/baz"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -130,7 +130,7 @@ mod test {
         fs::create_dir("foo")?;
         fs::write(setup.tempdir().join("foo/bar"), "")?;
         fs::write(setup.tempdir().join("foo/baz"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -151,7 +151,7 @@ mod test {
         fs::create_dir_all("foo/baz")?;
         fs::write(setup.tempdir().join("foo/bar/file"), "")?;
         fs::write(setup.tempdir().join("foo/baz/file"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -173,7 +173,7 @@ mod test {
         fs::create_dir_all("a/b/c")?;
         fs::write(setup.tempdir().join("a/b/c/d"), "")?;
         fs::write(setup.tempdir().join("a/e"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(
@@ -196,7 +196,7 @@ mod test {
         fs::create_dir_all("bar")?;
         fs::write(setup.tempdir().join("bar/baz"), "")?;
         fs::write(setup.tempdir().join("bar/.baz"), "")?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(2),
             dedent(

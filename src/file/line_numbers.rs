@@ -53,7 +53,7 @@ mod test {
     fn shows_line_numbers() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo\nbar\nbaz\n")?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         assert_eq!(setup.get_section(1), "1 | foo\n2 | bar\n3 | baz\n");
         Ok(())
     }
@@ -62,7 +62,7 @@ mod test {
     fn works_for_consecutive_newlines() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo\n\nbar\n")?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         assert_eq!(setup.get_section(1), "1 | foo\n2 |\n3 | bar\n");
         Ok(())
     }
@@ -70,7 +70,7 @@ mod test {
     fn run_on_lines(source: Source<&str>) -> R<Vec<String>> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), source.join("\n"))?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         Ok(setup
             .get_section(1)
             .lines()

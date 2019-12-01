@@ -36,7 +36,7 @@ mod test {
     fn colorizes_file_contents() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo \"bar\"")?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         assert!(setup
             .get_section(1)
             .ends_with(&format!("foo {}", "\"bar\"".yellow().bold())));
@@ -47,7 +47,7 @@ mod test {
     fn includes_a_stats_section_about_the_file() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo")?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         assert_eq!(get_line(setup.stdout(), 0), "file: foo, 3 bytes");
         assert_eq!(
             get_line(setup.stdout(), 1),

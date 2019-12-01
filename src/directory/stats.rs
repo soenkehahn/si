@@ -67,7 +67,7 @@ mod stats_pluralization {
         let mut setup = setup()?;
         fs::create_dir(setup.tempdir().join("foo"))?;
         fs::write(setup.tempdir().join("bar"), "")?;
-        setup.run(vec![".".to_string()])?;
+        setup.run(vec!["."])?;
         assert_eq!(
             setup.get_section(0),
             format!("2 entries, 1 directory, 1 file\n")

@@ -57,7 +57,7 @@ mod test {
     fn single_file() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "")?;
-        setup.run(vec![".".to_string()])?;
+        setup.run(vec!["."])?;
         assert_eq!(setup.get_section(1), "foo\n");
         Ok(())
     }
@@ -67,7 +67,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "")?;
         fs::write(setup.tempdir().join("bar"), "")?;
-        setup.run(vec![".".to_string()])?;
+        setup.run(vec!["."])?;
         assert_eq!(setup.get_section(1), "bar\nfoo\n");
         Ok(())
     }
@@ -77,7 +77,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "")?;
         fs::write(setup.tempdir().join("bar"), "")?;
-        setup.run(vec![])?;
+        setup.run::<String>(vec![])?;
         assert_eq!(setup.get_section(1), "bar\nfoo\n");
         Ok(())
     }
@@ -86,7 +86,7 @@ mod test {
     fn lists_directories_with_a_trailing_slash() -> R<()> {
         let mut setup = setup()?;
         fs::create_dir(setup.tempdir().join("foo"))?;
-        setup.run(vec![".".to_string()])?;
+        setup.run(vec!["."])?;
         assert_eq!(strip(setup.get_section(1))?, b"foo/\n");
         Ok(())
     }
@@ -95,7 +95,7 @@ mod test {
     fn lists_directories_in_blue() -> R<()> {
         let mut setup = setup()?;
         fs::create_dir(setup.tempdir().join("foo"))?;
-        setup.run(vec![".".to_string()])?;
+        setup.run(vec!["."])?;
         assert_eq!(setup.get_section(1), format!("{}/\n", "foo".blue().bold()));
         Ok(())
     }

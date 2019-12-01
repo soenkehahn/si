@@ -106,9 +106,13 @@ mod test {
     pub const TEST_TERMINAL_WIDTH: Option<usize> = Some(50);
 
     impl Setup {
-        pub fn run(&mut self, args: Vec<String>) -> R<()> {
+        pub fn run<S: Into<String>>(&mut self, args: Vec<S>) -> R<()> {
             let context = &mut Context {
-                args: vec![vec!["si".to_string()], args].concat(),
+                args: vec![
+                    vec!["si".to_string()],
+                    args.into_iter().map(|x| x.into()).collect(),
+                ]
+                .concat(),
                 stdout: &mut self.stdout,
                 terminal_width: TEST_TERMINAL_WIDTH,
             };
@@ -152,7 +156,7 @@ mod test {
     fn cats_files() -> R<()> {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "bar")?;
-        setup.run(vec!["foo".to_string()])?;
+        setup.run(vec!["foo"])?;
         assert!(setup.get_section(1).ends_with("bar"));
         Ok(())
     }
@@ -160,7 +164,7 @@ mod test {
     #[test]
     fn path_not_found() -> R<()> {
         let mut setup = setup()?;
-        let result = setup.run(vec!["does_not_exist.txt".to_string()]);
+        let result = setup.run(vec!["does_not_exist.txt"]);
         assert_eq!(
             result.map_err(|x| x.to_string()),
             Err("path not found: does_not_exist.txt\n".to_string())
@@ -171,7 +175,7 @@ mod test {
     #[test]
     fn separators_span_the_terminal_width() -> R<()> {
         let mut setup = setup()?;
-        setup.run(vec![])?;
+        setup.run(vec!["."])?;
         let expected = Source::replicate(TEST_TERMINAL_WIDTH.unwrap() as u32, "─")
             .join("")
             .yellow()
