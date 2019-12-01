@@ -51,7 +51,7 @@ mod test {
         assert_eq!(get_line(setup.stdout(), 0), "file: foo, 3 bytes");
         assert_eq!(
             get_line(setup.stdout(), 1),
-            Source::replicate(TEST_TERMINAL_WIDTH as u32, "-")
+            Source::replicate(TEST_TERMINAL_WIDTH.unwrap() as u32, "─")
                 .join("")
                 .yellow()
                 .bold()

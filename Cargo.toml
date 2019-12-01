@@ -1,6 +1,6 @@
 [package]
 name = "si"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Sönke Hahn <soenkehahn@gmail.com>"]
 edition = "2018"
 

@@ -12,14 +12,11 @@ type R<A> = Result<A, Box<dyn std::error::Error>>;
 pub struct Context<'a> {
     args: Vec<String>,
     stdout: &'a mut dyn Write,
-    terminal_width: usize,
+    terminal_width: Option<usize>,
 }
 
 fn wrap_main(action: fn(context: &mut Context) -> R<()>) {
-    let terminal_width = match term_size::dimensions_stdout() {
-        Some((width, _)) => width,
-        None => panic!("fixme"),
-    };
+    let terminal_width = term_size::dimensions_stdout().map(|(width, _)| width);
     colored::control::set_override(true);
     Pager::with_pager("less -RFX").setup();
     let mut stdout = std::io::stdout();
@@ -64,10 +61,10 @@ fn run(context: &mut Context) -> R<()> {
     Ok(())
 }
 
-fn separator(width: usize) -> String {
+fn separator(terminal_width: Option<usize>) -> String {
     format!(
         "{}\n",
-        Source::replicate(width as u32, "-")
+        Source::replicate(terminal_width.unwrap_or(20) as u32, "─")
             .join("")
             .yellow()
             .bold()
@@ -106,7 +103,7 @@ mod test {
         })
     }
 
-    pub const TEST_TERMINAL_WIDTH: usize = 50;
+    pub const TEST_TERMINAL_WIDTH: Option<usize> = Some(50);
 
     impl Setup {
         pub fn run(&mut self, args: Vec<String>) -> R<()> {
@@ -175,7 +172,7 @@ mod test {
     fn separators_span_the_terminal_width() -> R<()> {
         let mut setup = setup()?;
         setup.run(vec![])?;
-        let expected = Source::replicate(TEST_TERMINAL_WIDTH as u32, "-")
+        let expected = Source::replicate(TEST_TERMINAL_WIDTH.unwrap() as u32, "─")
             .join("")
             .yellow()
             .bold()

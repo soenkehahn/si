@@ -124,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "si"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "colored 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pager 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
