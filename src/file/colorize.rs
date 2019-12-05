@@ -27,7 +27,8 @@ impl Parser {
                     .map(|chunk| chunk.to_string().cyan().bold().to_string())
             })
             .or_else(|()| self.number_word())
-            .or_else(|()| self.quoted().map(|x| x.yellow().bold().to_string()))
+            .or_else(|()| self.quoted('\"').map(|x| x.yellow().bold().to_string()))
+            .or_else(|()| self.quoted('\'').map(|x| x.yellow().bold().to_string()))
             .map(Some)
             .unwrap_or_else(|()| self.any_char())
     }
@@ -44,18 +45,23 @@ impl Parser {
         Ok(result)
     }
 
-    fn quoted(&mut self) -> ParseResult<String> {
-        self.char(|char| char == '\"')?;
-        let result = self.parse_zero_or_more(|this| this.quoted_char());
-        match self.char(|char| char == '\"') {
-            Ok(_) => Ok(format!("\"{}\"", result.collect::<String>())),
-            Err(()) => Ok(format!("\"{}", result.collect::<String>())),
+    fn quoted(&mut self, quote_char: char) -> ParseResult<String> {
+        self.char(|char| char == quote_char)?;
+        let result = self.parse_zero_or_more(|this| this.quoted_char(quote_char));
+        match self.char(|char| char == quote_char) {
+            Ok(_) => Ok(format!(
+                "{}{}{}",
+                quote_char,
+                result.collect::<String>(),
+                quote_char
+            )),
+            Err(()) => Ok(format!("{}{}", quote_char, result.collect::<String>())),
         }
     }
 
-    fn quoted_char(&mut self) -> ParseResult<String> {
+    fn quoted_char(&mut self, quote_char: char) -> ParseResult<String> {
         self.escaped_char().or_else(|()| {
-            self.char(|char| char != '\"' && char != '\n')
+            self.char(|char| char != quote_char && char != '\n')
                 .map(|char| char.to_string())
         })
     }
@@ -97,9 +103,9 @@ impl Parser {
         self.char(|char| char.is_ascii_digit())
     }
 
-    fn parse_zero_or_more<A>(
+    fn parse_zero_or_more<A, F: Fn(&mut Parser) -> ParseResult<A>>(
         &mut self,
-        parse_element: fn(&mut Parser) -> ParseResult<A>,
+        parse_element: F,
     ) -> impl Iterator<Item = A> {
         let mut result = vec![];
         while let Ok(element) = parse_element(self) {
@@ -130,35 +136,64 @@ mod test {
         colorize(Source::from(vec.into_iter())).join("")
     }
 
+    macro_rules! replicate_tests {
+        ($parameter: ident = { $snippet: ident : $argument: tt, $($rest: tt)* } $($tests: item)*) => {
+            replicate_tests!($parameter = { $snippet : $argument } $($tests)*);
+            replicate_tests!($parameter = { $($rest)* } $($tests)*);
+        };
+        ($parameter: ident = { $snippet: ident : $argument: expr } $($tests: item)*) => {
+            mod $snippet {
+                use super::*;
+
+                const $parameter: char = $argument;
+
+                $($tests)*
+            }
+        }
+    }
+
     mod quotes {
         use super::*;
 
-        #[test]
-        fn colorizes_double_quoted_strings() {
-            assert_eq!(
-                test_colorize("f\"o\"o"),
-                format!("f{}o", "\"o\"".yellow().bold())
-            );
-        }
+        replicate_tests! {
+            QUOTE_CHAR = {
+              double_quotes: '\"',
+              single_quotes: '\''
+            }
 
-        #[test]
-        fn allows_to_escape_double_quotes() {
-            assert_eq!(
-                test_colorize(r#"a"b\"c\"d"e"#),
-                format!("a{}e", r#""b\"c\"d""#.yellow().bold())
-            );
-        }
+            fn convert_quotes(string: &str) -> String {
+                string.replace("\"", &QUOTE_CHAR.to_string())
+            }
 
-        #[test]
-        fn resets_at_newlines() {
-            assert_eq!(
-                test_colorize("foo\"bar\nf\"o\"o"),
-                format!(
-                    "foo{}\nf{}o",
-                    "\"bar".yellow().bold(),
-                    "\"o\"".yellow().bold()
-                )
-            );
+            #[test]
+            fn colorizes_quoted_strings() {
+                assert_eq!(
+                    test_colorize(&convert_quotes("f\"o\"o")),
+                    format!("f{}o", convert_quotes("\"o\"").yellow().bold())
+                );
+            }
+
+            #[test]
+            fn allows_to_escape_double_quotes() {
+                assert_eq!(
+                    test_colorize(&convert_quotes(r#"a"b\"c\"d"e"#)),
+                    convert_quotes(&format!("a{}e", r#""b\"c\"d""#.yellow().bold()))
+                );
+            }
+
+            #[test]
+            fn resets_at_newlines() {
+                assert_eq!(
+                    test_colorize(&convert_quotes("foo\"bar\nf\"o\"o")),
+                    convert_quotes(
+                        &format!(
+                            "foo{}\nf{}o",
+                            "\"bar".yellow().bold(),
+                            "\"o\"".yellow().bold()
+                        )
+                    )
+                );
+            }
         }
     }
 
