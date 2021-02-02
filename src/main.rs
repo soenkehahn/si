@@ -6,6 +6,7 @@ use pager::Pager;
 use source::Source;
 use std::io::Write;
 use std::path::PathBuf;
+use std::fs;
 
 type R<A> = Result<A, Box<dyn std::error::Error>>;
 
@@ -50,6 +51,11 @@ fn run(context: &mut Context) -> R<()> {
     );
     if !entry.exists() {
         return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
+    }
+    let metadata = fs::symlink_metadata(&entry)?;
+    let file_type = metadata.file_type();
+    if file_type.is_symlink(){
+        todo!()
     }
     if entry.is_file() {
         file::output(context, entry)?;
