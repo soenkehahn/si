@@ -84,6 +84,7 @@ mod test {
     use std::fs;
     use std::io::Cursor;
     use std::path::Path;
+    use std::process::Command;
     use tempdir::TempDir;
 
     pub struct Setup {
@@ -182,6 +183,20 @@ mod test {
             .bold()
             .to_string();
         assert_eq!(setup.stdout().lines().collect::<Vec<&str>>()[1], expected);
+        Ok(())
+    }
+
+    #[test]
+    fn foo() -> R<()> {
+        let mut setup = setup()?;
+        fs::write(setup.tempdir().join("foo"), "foo")?;
+        std::os::unix::fs::symlink("foo", "bar")?;
+        setup.run(vec!["bar"])?;
+        assert_eq!(
+            setup.get_section(0),
+            "./bar is a symbolic link pointing to ./foo"
+        );
+        // todo!("bla");
         Ok(())
     }
 }
