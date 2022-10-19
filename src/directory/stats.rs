@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::fs;
 
 pub fn output(context: &mut Context, children: &[fs::DirEntry]) -> R<()> {
-    let stats = get_stats(&children)?;
+    let stats = get_stats(children)?;
     context
         .stdout
         .write_all(format!("{}\n", stats).as_bytes())?;

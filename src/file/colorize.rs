@@ -94,7 +94,7 @@ impl Parser {
     }
 
     fn digit(&mut self) -> ParseResult<char> {
-        self.char(|char| char.is_digit(10))
+        self.char(|char| char.is_ascii_digit())
     }
 
     fn parse_zero_or_more<A>(
