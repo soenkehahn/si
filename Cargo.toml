@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 colored = "*"
 pager = "*"
-source = "0.2.0"
+source = "0.2.1"
 term_size = "*"
 
 [dev-dependencies]

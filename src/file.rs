@@ -59,4 +59,12 @@ mod test {
         );
         Ok(())
     }
+
+    #[test]
+    fn does_not_crash_for_invalid_utf_8() -> R<()> {
+        let mut setup = setup()?;
+        fs::write(setup.tempdir().join("foo"), [0xc3, 0x28])?;
+        setup.run(vec!["foo"])?;
+        Ok(())
+    }
 }
