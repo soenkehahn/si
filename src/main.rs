@@ -1,11 +1,15 @@
 mod directory;
 mod file;
+mod utils;
 
 use colored::*;
+use lexiclean::Lexiclean;
 use pager::Pager;
 use source::Source;
+use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use utils::render_path;
 
 type R<A> = Result<A, Box<dyn std::error::Error>>;
 
@@ -48,15 +52,34 @@ fn run(context: &mut Context) -> R<()> {
             .cloned()
             .unwrap_or_else(|| ".".to_string()),
     );
+    show_information(context, entry)?;
+    Ok(())
+}
+
+fn show_information(context: &mut Context, entry: PathBuf) -> R<()> {
     if !entry.exists() {
-        return Err(format!("path not found: {}\n", entry.to_string_lossy()).into());
+        return Err(format!("path not found: {}\n", render_path(entry)).into());
     }
-    if entry.is_file() {
+    if entry.is_symlink() {
+        let link = fs::read_link(&entry)?;
+        let destination = match entry.parent() {
+            Some(parent) => parent.join(&link).lexiclean(),
+            None => return Err(format!("symlink {} has no parent", render_path(entry)).into()),
+        };
+        writeln!(
+            context.stdout,
+            "{} is a symbolic link pointing to {}\nresolving to:",
+            render_path(&entry),
+            link.to_string_lossy(),
+        )?;
+        write_separator(context)?;
+        show_information(context, destination)?;
+    } else if entry.is_file() {
         file::output(context, entry)?;
     } else if entry.is_dir() {
         directory::output(context, entry)?;
     } else {
-        return Err(format!("unknown filetype for: {}", entry.to_string_lossy()).into());
+        return Err(format!("unknown filetype for: {}", render_path(entry)).into());
     }
     Ok(())
 }
@@ -81,6 +104,7 @@ fn write_separator(context: &mut Context) -> R<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
     use std::fs;
     use std::io::Cursor;
     use std::path::Path;
@@ -167,7 +191,7 @@ mod test {
         let result = setup.run(vec!["does_not_exist.txt"]);
         assert_eq!(
             result.map_err(|x| x.to_string()),
-            Err("path not found: does_not_exist.txt\n".to_string())
+            Err("path not found: ./does_not_exist.txt\n".to_string())
         );
         Ok(())
     }
@@ -182,6 +206,58 @@ mod test {
             .bold()
             .to_string();
         assert_eq!(setup.stdout().lines().collect::<Vec<&str>>()[1], expected);
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_symlinks() -> R<()> {
+        let mut setup = setup()?;
+        fs::write(setup.tempdir().join("foo"), "foo")?;
+        std::os::unix::fs::symlink("foo", "bar")?;
+        setup.run(vec!["bar"])?;
+        assert_eq!(
+            setup.get_section(0),
+            "./bar is a symbolic link pointing to foo\nresolving to:\n"
+        );
+        assert_eq!(setup.get_section(1), "file: ./foo, 3 bytes\n");
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_symlinks_in_other_directories() -> R<()> {
+        let mut setup = setup()?;
+        fs::create_dir(setup.tempdir().join("dir"))?;
+        fs::write(setup.tempdir().join("dir/foo"), "foo")?;
+        std::os::unix::fs::symlink("foo", "dir/bar")?;
+        setup.run(vec!["dir/bar"])?;
+        assert_eq!(
+            setup.get_section(0),
+            "./dir/bar is a symbolic link pointing to foo\nresolving to:\n"
+        );
+        assert_eq!(setup.get_section(1), "file: ./dir/foo, 3 bytes\n");
+        Ok(())
+    }
+
+    #[test]
+    fn resolved_symlinks_are_printed_normalized() -> R<()> {
+        let mut setup = setup()?;
+        fs::create_dir(setup.tempdir().join("dir"))?;
+        fs::write(setup.tempdir().join("foo"), "foo")?;
+        std::os::unix::fs::symlink("../foo", "dir/bar")?;
+        setup.run(vec!["dir/bar"])?;
+        assert_eq!(
+            setup.get_section(0),
+            "./dir/bar is a symbolic link pointing to ../foo\nresolving to:\n"
+        );
+        assert_eq!(setup.get_section(1), "file: ./foo, 3 bytes\n");
+        Ok(())
+    }
+
+    #[test]
+    fn render_path_works() -> R<()> {
+        assert_eq!(render_path(PathBuf::from("foo")), "./foo");
+        assert_eq!(render_path(PathBuf::from("/foo")), "/foo");
+        assert_eq!(render_path(PathBuf::from("./foo")), "./foo");
         Ok(())
     }
 }
