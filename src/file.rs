@@ -2,6 +2,7 @@ mod colorize;
 mod line_numbers;
 
 use self::colorize::colorize;
+use crate::utils::render_path;
 use crate::{write_separator, Context, R};
 use source::Source;
 use std::fs;
@@ -12,7 +13,7 @@ pub fn output(context: &mut Context, file: PathBuf) -> R<()> {
     writeln!(
         context.stdout,
         "file: {}, {} bytes",
-        file.to_string_lossy(),
+        render_path(&file),
         size
     )?;
     write_separator(context)?;
@@ -48,7 +49,7 @@ mod test {
         let mut setup = setup()?;
         fs::write(setup.tempdir().join("foo"), "foo")?;
         setup.run(vec!["foo"])?;
-        assert_eq!(get_line(setup.stdout(), 0), "file: foo, 3 bytes");
+        assert_eq!(get_line(setup.stdout(), 0), "file: ./foo, 3 bytes");
         assert_eq!(
             get_line(setup.stdout(), 1),
             Source::replicate(TEST_TERMINAL_WIDTH.unwrap() as u32, "─")

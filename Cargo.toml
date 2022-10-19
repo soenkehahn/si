@@ -6,11 +6,13 @@ edition = "2018"
 
 [dependencies]
 colored = "*"
+lexiclean = "0.0.1"
 pager = "*"
 source = "0.2.1"
 term_size = "*"
 
 [dev-dependencies]
+pretty_assertions = "1.3.0"
 strip-ansi-escapes = "*"
 tempdir = "*"
 textwrap = "*"
