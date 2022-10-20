@@ -96,10 +96,10 @@ impl Parser {
         self.char(|char| char.is_ascii_digit())
     }
 
-    fn parse_zero_or_more<A, F: Fn(&mut Parser) -> ParseResult<A>>(
-        &mut self,
-        parse_element: F,
-    ) -> impl Iterator<Item = A> {
+    fn parse_zero_or_more<A, F>(&mut self, parse_element: F) -> impl Iterator<Item = A>
+    where
+        F: Fn(&mut Parser) -> ParseResult<A>,
+    {
         let mut result = vec![];
         while let Ok(element) = parse_element(self) {
             result.push(element);
