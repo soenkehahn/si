@@ -2,7 +2,8 @@ use colored::*;
 use source::Source;
 
 pub fn colorize(contents: Source<char>) -> Source<String> {
-    Source::from(Parser { inner: contents })
+    let mut parser = Parser { inner: contents };
+    Source::new(move || parser.next_chunk())
 }
 
 pub struct Parser {
@@ -10,14 +11,6 @@ pub struct Parser {
 }
 
 type ParseResult<A> = Result<A, ()>;
-
-impl Iterator for Parser {
-    type Item = String;
-
-    fn next(&mut self) -> Option<String> {
-        self.next_chunk()
-    }
-}
 
 impl Parser {
     fn next_chunk(&mut self) -> Option<String> {
